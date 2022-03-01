@@ -1,6 +1,9 @@
+using System.Drawing;
+using System.IO;
+
 namespace Cte.Dacte.Base.Standard
 {
-    public class ConfigracaoDacte
+    public class ConfiguracaoDacte
     {
         public ConfiguracaoDacte()
         {

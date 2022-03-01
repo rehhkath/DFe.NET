@@ -1,10 +1,15 @@
 using System.IO;
 using System;
+using CTe.Classes;
+using Cte.Dacte.Base.Standard;
+using FastReport;
+using FastReport.Export.PdfSimple;
+
 namespace Cte.Dacte.Fast.Standard
 {
-    public class DacteFrCte
+    public class DacteFrCte : DacteBase
     {
-        protected Report Relatorio;
+        // protected Report Relatorio;
 
         public DacteFrCte()
         {
@@ -38,44 +43,20 @@ namespace Cte.Dacte.Fast.Standard
 
         public DacteFrCte(cteProc proc, ConfiguracaoDacte config, string arquivoRelatorio = "")
         {
-            Relatorio = new Report();
-            RegisterData(proc);
-            if (!string.IsNullOrEmpty(arquivoRelatorio))
-                Relatorio.Load(arquivoRelatorio);
-            else
-                Relatorio.Load(new MemoryStream(Properties.Resources.CTeRetrato));
+            byte[] retrato = null;
+            if(string.IsNullOrWhiteSpace(arquivoRelatorio))
+            {
+                try
+                {
+                    retrato = Properties.Resources.CTeRetrato;
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception("Não foi possivel o carregamento do Resource CTeRetrato, utilize o parametro arquivoRelatorio e passe o caminho manualmente.", ex);
+                }
+            }
+            this.Relatorio = DacteSharedHelper.GenerateDacteReport(proc, config, retrato, arquivoRelatorio);
             Configurar(config);
-        }
-
-        /// <summary>
-        /// Abre a janela de visualização do DACTe
-        /// </summary>
-        /// <param name="modal">Se true, exibe a visualização em Modal. O modo modal está disponível apenas para WinForms</param>
-        public void Visualizar(bool modal = true)
-        {
-            Relatorio.Show(modal);
-        }
-
-        /// <summary>
-        ///  Abre a janela de visualização do design do DACTe
-        /// Chame esse método se desja fazer alterações no design do DAMDFe em modo run-time
-        /// </summary>
-        /// <param name="modal">Se true, exibe a visualização em Modal. O modo modal está disponível apenas para WinForms</param>
-        public void ExibirDesign(bool modal = false)
-        {
-            Relatorio.Design(modal);
-        }
-
-        /// <summary>
-        /// Envia a impressão do DACTe diretamente para a impressora
-        /// </summary>
-        /// <param name="exibirDialogo">Se true exibe o diálogo Imprimindo...</param>
-        /// <param name="impressora">Passe a string com o nome da impressora para imprimir diretamente em determinada impressora. Caso contrário, a impressão será feita na impressora que estiver como padrão</param>
-        public void Imprimir(bool exibirDialogo = true, string impressora = "")
-        {
-            Relatorio.PrintSettings.ShowDialog = exibirDialogo;
-            Relatorio.PrintSettings.Printer = impressora;
-            Relatorio.Print();
         }
 
         /// <summary>
@@ -85,7 +66,7 @@ namespace Cte.Dacte.Fast.Standard
         public void ExportarPdf(string arquivo)
         {
             Relatorio.Prepare();
-            Relatorio.Export(new PDFExport(), arquivo);
+            Relatorio.Export(new PDFSimpleExport(), arquivo);
         }
 
         /// <summary>
@@ -95,7 +76,7 @@ namespace Cte.Dacte.Fast.Standard
         public void ExportarPdf(Stream outputStream)
         {
             Relatorio.Prepare();
-            Relatorio.Export(new PDFExport(), outputStream);
+            Relatorio.Export(new PDFSimpleExport(), outputStream);
             outputStream.Position = 0;
         }
 

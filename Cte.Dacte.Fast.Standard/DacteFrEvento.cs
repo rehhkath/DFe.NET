@@ -1,5 +1,9 @@
 using System.IO;
 using System;
+using FastReport;
+using CTe.Classes;
+using CTe.Classes.Servicos.Consulta;
+using FastReport.Export.PdfSimple;
 
 namespace Cte.Dacte.Fast.Standard
 {
@@ -43,7 +47,8 @@ namespace Cte.Dacte.Fast.Standard
             if (!string.IsNullOrEmpty(arquivoRelatorio))
                 Relatorio.Load(arquivoRelatorio);
             else
-                Relatorio.Load(new MemoryStream(Properties.Resources.CTeEvento));
+                throw new Exception("Faltou o cte retrato");
+                // Relatorio.Load(new MemoryStream(Properties.Resources.CTeEvento));
             Configurar(desenvolvedor: desenvolvedor);
         }
 
@@ -52,32 +57,32 @@ namespace Cte.Dacte.Fast.Standard
         /// Abre a janela de visualização do DAMDFe
         /// </summary>
         /// <param name="modal">Se true, exibe a visualização em Modal. O modo modal está disponível apenas para WinForms</param>
-        public void Visualizar(bool modal = true)
-        {
-            Relatorio.Show(modal);
-        }
+        // public void Visualizar(bool modal = true)
+        // {
+        //     Relatorio.Show(modal);
+        // }
 
         /// <summary>
         ///  Abre a janela de visualização do design do DAMDFe
         /// Chame esse método se desja fazer alterações no design do DAMDFe em modo run-time
         /// </summary>
         /// <param name="modal">Se true, exibe a visualização em Modal. O modo modal está disponível apenas para WinForms</param>
-        public void ExibirDesign(bool modal = false)
-        {
-            Relatorio.Design(modal);
-        }
+        // public void ExibirDesign(bool modal = false)
+        // {
+        //     Relatorio.Design(modal);
+        // }
 
         /// <summary>
         /// Envia a impressão do DAMDFe diretamente para a impressora
         /// </summary>
         /// <param name="exibirDialogo">Se true exibe o diálogo Imprimindo...</param>
         /// <param name="impressora">Passe a string com o nome da impressora para imprimir diretamente em determinada impressora. Caso contrário, a impressão será feita na impressora que estiver como padrão</param>
-        public void Imprimir(bool exibirDialogo = true, string impressora = "")
-        {
-            Relatorio.PrintSettings.ShowDialog = exibirDialogo;
-            Relatorio.PrintSettings.Printer = impressora;
-            Relatorio.Print();
-        }
+        // public void Imprimir(bool exibirDialogo = true, string impressora = "")
+        // {
+        //     Relatorio.PrintSettings.ShowDialog = exibirDialogo;
+        //     Relatorio.PrintSettings.Printer = impressora;
+        //     Relatorio.Print();
+        // }
 
         /// <summary>
         /// Converte o DAMDFe para PDF e salva-o no caminho/arquivo indicado
@@ -86,7 +91,7 @@ namespace Cte.Dacte.Fast.Standard
         public void ExportarPdf(string arquivo)
         {
             Relatorio.Prepare();
-            Relatorio.Export(new PDFExport(), arquivo);
+            Relatorio.Export(new PDFSimpleExport(), arquivo);
         }
 
         /// <summary>
@@ -96,7 +101,7 @@ namespace Cte.Dacte.Fast.Standard
         public void ExportarPdf(Stream outputStream)
         {
             Relatorio.Prepare();
-            Relatorio.Export(new PDFExport(), outputStream);
+            Relatorio.Export(new PDFSimpleExport(), outputStream);
             outputStream.Position = 0;
         }
 

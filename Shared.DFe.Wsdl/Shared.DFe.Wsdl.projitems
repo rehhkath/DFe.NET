@@ -33,4 +33,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Http\Ext\ExtHttpWebRequest.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Http\RequestWS.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="$(MSBuildThisFileDirectory)NovaPasta\" />
+  </ItemGroup>
 </Project>

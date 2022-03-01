@@ -12,7 +12,7 @@ namespace NFe.Integracao.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "15.5.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "17.1.0.0")]
     internal sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase {
         
         private static Settings defaultInstance = ((Settings)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new Settings())));
@@ -145,9 +145,9 @@ namespace NFe.Integracao.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        public global::DFe.Classes.Flags.VersaoServico versao_NFe {
+        public global::NFe.Classes.Servicos.Tipos.VersaoServico versao_NFe {
             get {
-                return ((global::DFe.Classes.Flags.VersaoServico)(this["versao_NFe"]));
+                return ((global::NFe.Classes.Servicos.Tipos.VersaoServico)(this["versao_NFe"]));
             }
             set {
                 this["versao_NFe"] = value;

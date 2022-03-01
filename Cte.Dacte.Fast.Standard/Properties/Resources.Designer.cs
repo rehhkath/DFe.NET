@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace CTe.AppTeste.Properties {
+namespace Cte.Dacte.Fast.Standard.Properties {
     using System;
     
     
@@ -39,7 +39,7 @@ namespace CTe.AppTeste.Properties {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("CTe.AppTeste.Properties.Resources", typeof(Resources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Cte.Dacte.Fast.Standard.Properties.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -57,6 +57,26 @@ namespace CTe.AppTeste.Properties {
             }
             set {
                 resourceCulture = value;
+            }
+        }
+        
+        /// <summary>
+        ///   Consulta um recurso localizado do tipo System.Byte[].
+        /// </summary>
+        internal static byte[] CTeEvento {
+            get {
+                object obj = ResourceManager.GetObject("CTeEvento", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Consulta um recurso localizado do tipo System.Byte[].
+        /// </summary>
+        internal static byte[] CTeRetrato {
+            get {
+                object obj = ResourceManager.GetObject("CTeRetrato", resourceCulture);
+                return ((byte[])(obj));
             }
         }
     }

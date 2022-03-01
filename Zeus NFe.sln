@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.28803.352
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32210.238
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NFe.Classes", "NFe.Classes\NFe.Classes.csproj", "{29CA1DA2-440D-484B-951A-CF1B2EB27984}"
 EndProject
@@ -162,13 +162,19 @@ Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Shared.MDFe.Servicos", "Sha
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Shared.MDFe.Wsdl", "Shared.MDFe.Wsdl\Shared.MDFe.Wsdl.shproj", "{CB6A1782-1A20-4BB4-AA6E-1C6A4824EF0F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MDFe.Classes.Standard", "MDFe.Classes.Standard\MDFe.Classes.Standard.csproj", "{4994F41F-4B7E-4C1C-81EF-8AEFC9CB5C89}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MDFe.Classes.Standard", "MDFe.Classes.Standard\MDFe.Classes.Standard.csproj", "{4994F41F-4B7E-4C1C-81EF-8AEFC9CB5C89}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MDFe.Utils.Standard", "MDFe.Utils.Standard\MDFe.Utils.Standard.csproj", "{E1965972-3899-4C6D-B208-12F13E4DB901}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MDFe.Utils.Standard", "MDFe.Utils.Standard\MDFe.Utils.Standard.csproj", "{E1965972-3899-4C6D-B208-12F13E4DB901}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MDFe.Servicos.Standard", "MDFe.Servicos.Standard\MDFe.Servicos.Standard.csproj", "{3D75BA38-2422-4EB6-A752-FF4BE7F3CBBF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MDFe.Servicos.Standard", "MDFe.Servicos.Standard\MDFe.Servicos.Standard.csproj", "{3D75BA38-2422-4EB6-A752-FF4BE7F3CBBF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MDFe.Wsdl.Standard", "MDFe.Wsdl.Standard\MDFe.Wsdl.Standard.csproj", "{DF5AFF90-47FE-4C89-9CA3-D56F6A1C0C53}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MDFe.Wsdl.Standard", "MDFe.Wsdl.Standard\MDFe.Wsdl.Standard.csproj", "{DF5AFF90-47FE-4C89-9CA3-D56F6A1C0C53}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cte.Dacte.Base.Standard", "Cte.Dacte.Base.Standard\Cte.Dacte.Base.Standard.csproj", "{5FEF2433-8789-4440-AD3B-AD8A0FD42961}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cte.Dacte.Fast.Standard", "Cte.Dacte.Fast.Standard\Cte.Dacte.Fast.Standard.csproj", "{0C4EFE90-B76F-4A07-B687-949632CFE996}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CTe.Dacte.AppTeste.NetCore", "CTe.Dacte.AppTeste.NetCore\CTe.Dacte.AppTeste.NetCore.csproj", "{EC2293CC-6643-426A-9CB1-236CB462EC0B}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
@@ -655,6 +661,30 @@ Global
 		{DF5AFF90-47FE-4C89-9CA3-D56F6A1C0C53}.Release|Any CPU.Build.0 = Release|Any CPU
 		{DF5AFF90-47FE-4C89-9CA3-D56F6A1C0C53}.Release|x86.ActiveCfg = Release|Any CPU
 		{DF5AFF90-47FE-4C89-9CA3-D56F6A1C0C53}.Release|x86.Build.0 = Release|Any CPU
+		{5FEF2433-8789-4440-AD3B-AD8A0FD42961}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5FEF2433-8789-4440-AD3B-AD8A0FD42961}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5FEF2433-8789-4440-AD3B-AD8A0FD42961}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5FEF2433-8789-4440-AD3B-AD8A0FD42961}.Debug|x86.Build.0 = Debug|Any CPU
+		{5FEF2433-8789-4440-AD3B-AD8A0FD42961}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5FEF2433-8789-4440-AD3B-AD8A0FD42961}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5FEF2433-8789-4440-AD3B-AD8A0FD42961}.Release|x86.ActiveCfg = Release|Any CPU
+		{5FEF2433-8789-4440-AD3B-AD8A0FD42961}.Release|x86.Build.0 = Release|Any CPU
+		{0C4EFE90-B76F-4A07-B687-949632CFE996}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C4EFE90-B76F-4A07-B687-949632CFE996}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C4EFE90-B76F-4A07-B687-949632CFE996}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{0C4EFE90-B76F-4A07-B687-949632CFE996}.Debug|x86.Build.0 = Debug|Any CPU
+		{0C4EFE90-B76F-4A07-B687-949632CFE996}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C4EFE90-B76F-4A07-B687-949632CFE996}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0C4EFE90-B76F-4A07-B687-949632CFE996}.Release|x86.ActiveCfg = Release|Any CPU
+		{0C4EFE90-B76F-4A07-B687-949632CFE996}.Release|x86.Build.0 = Release|Any CPU
+		{EC2293CC-6643-426A-9CB1-236CB462EC0B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EC2293CC-6643-426A-9CB1-236CB462EC0B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EC2293CC-6643-426A-9CB1-236CB462EC0B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{EC2293CC-6643-426A-9CB1-236CB462EC0B}.Debug|x86.Build.0 = Debug|Any CPU
+		{EC2293CC-6643-426A-9CB1-236CB462EC0B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EC2293CC-6643-426A-9CB1-236CB462EC0B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EC2293CC-6643-426A-9CB1-236CB462EC0B}.Release|x86.ActiveCfg = Release|Any CPU
+		{EC2293CC-6643-426A-9CB1-236CB462EC0B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
