@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace MDFe.Damdfe.Fast.Properties {
+namespace Mdfe.Damdfe.Fast.Standard.Properties {
     using System;
     
     
@@ -39,7 +39,7 @@ namespace MDFe.Damdfe.Fast.Properties {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("MDFe.Damdfe.Fast.Properties.Resources", typeof(Resources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Mdfe.Damdfe.Fast.Standard.Properties.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -63,9 +63,9 @@ namespace MDFe.Damdfe.Fast.Properties {
         /// <summary>
         ///   Consulta um recurso localizado do tipo System.Byte[].
         /// </summary>
-        internal static byte[] MDFeRetrato {
+        internal static byte[] MDFeRetratoStandard {
             get {
-                object obj = ResourceManager.GetObject("MDFeRetrato", resourceCulture);
+                object obj = ResourceManager.GetObject("MDFeRetratoStandard", resourceCulture);
                 return ((byte[])(obj));
             }
         }
