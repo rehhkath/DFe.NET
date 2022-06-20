@@ -48,7 +48,7 @@ namespace Cte.Dacte.Fast.Standard
             {
                 try
                 {
-                    retrato = Properties.Resources.CTeRetrato;
+                    retrato = Properties.Resources.CTeRetratoPadrao;
                 }
                 catch (Exception ex)
                 {
@@ -58,7 +58,7 @@ namespace Cte.Dacte.Fast.Standard
             this.Relatorio = DacteSharedHelper.GenerateDacteReport(proc, config, retrato, arquivoRelatorio);
             Configurar(config);
         }
-
+        
         /// <summary>
         /// Converte o DACTe para PDF e salva-o no caminho/arquivo indicado
         /// </summary>

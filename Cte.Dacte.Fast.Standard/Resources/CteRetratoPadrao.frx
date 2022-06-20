@@ -1,0 +1,1458 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReferencedAssemblies="System.dll&#13;&#10;System.Drawing.dll&#13;&#10;System.Windows.Forms.dll&#13;&#10;System.Data.dll&#13;&#10;System.Xml.dll&#13;&#10;CTe.Classes.Standard.dll&#13;&#10;DFe.Classes.Standard.dll" StartReportEvent="_StartReport" ReportInfo.Created="07/09/2017 18:15:37" ReportInfo.Modified="06/20/2022 10:54:55" ReportInfo.CreatorVersion="2022.1.0.0">
+  <ScriptText>using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Text.RegularExpressions;
+using System.Windows.Forms;
+
+using FastReport;
+using FastReport.Data;
+using FastReport.Dialog;
+using FastReport.Barcode;
+using FastReport.Table;
+using FastReport.Utils;
+
+using CTe.Classes.Informacoes;
+using CTe.Classes.Informacoes.Tipos;
+using CTe.Classes.Informacoes.Impostos.Tributacao;
+using CTe.Classes.Informacoes.Impostos.ICMS;
+using CTe.Classes.Informacoes.Impostos.ICMS.Tipos;
+using CTe.Classes.Informacoes.Identificacao;
+
+using CTe.Classes.Informacoes.infCTeNormal.infModals;
+using CTe.Classes.Informacoes.infCTeNormal.infModals.aereos;
+
+using DFe.Classes.Flags;
+
+namespace FastReport
+{ 
+  public class ReportScript
+  {
+    private string FormatarCampo(long valor, char format)
+    {
+      string _valor = valor.ToString();
+      if (format == 'c' &amp;&amp; valor &gt; 0)
+        _valor = valor.ToString(&quot;00000000&quot;);   
+      else if (format == 'c')
+        _valor = &quot;&quot;;
+      
+      return this.FormatarCampo(_valor, format);  
+    }
+    
+    private string FormatarCampo(string valor, char format)
+    {
+      switch (format)
+      {
+        case 'c':  //CEP
+          if (valor.Length == 8)
+            valor = valor.Substring(0,2) + &quot;.&quot; + valor.Substring(2,3) + &quot;-&quot; + valor.Substring(5,3); 
+          break;
+        case 'f':  //Telefone /celular         
+          if (valor.Length == 10)
+            valor = &quot;(&quot; +valor.Substring(0,2) + &quot;) &quot; + valor.Substring(2,4) + &quot;-&quot; + valor.Substring(6,4);
+          else if (valor.Length == 11)
+            valor = &quot;(&quot; +valor.Substring(0,2) + &quot;) &quot; + valor.Substring(2,5) + &quot;-&quot; + valor.Substring(7,4);          
+          break;
+        case 'd': //cpf / cnpj
+          if (valor.Length == 11)
+            valor = valor.Substring(0,3)+&quot;.&quot;+valor.Substring(3,3)+&quot;.&quot;+valor.Substring(6,3)+&quot;-&quot;+valor.Substring(9,2);
+          else if (valor.Length == 14)
+            valor = valor.Substring(0,2)+&quot;.&quot;+valor.Substring(2,3)+&quot;.&quot;+valor.Substring(5,3)+&quot;/&quot;+valor.Substring(8,4)+&quot;-&quot;+valor.Substring(12,2);
+          break;   
+        case 'p':
+          if (valor.Length == 7)
+            valor = valor.Substring(0,3)+&quot;-&quot;+valor.Substring(3,4);   
+          break;
+      }                               
+      return valor;
+    }
+    
+    private string FormatarChave(string chave)
+    {
+      string retorno = string.Empty;
+      chave = Regex.Replace(chave, @&quot;[^\d]&quot;, string.Empty); //Alterado para regex para poder usar em mais casos
+      //chave = chave.Substring(3);
+      for (int i = 0; i &lt; chave.Length; i++)
+      {
+        retorno += chave[i];
+        if ((i+1) % 4 == 0)
+          retorno += &quot; &quot;;
+      }
+      return retorno;      
+    }   
+        
+    private void _StartReport(object sender, EventArgs e)
+    {               
+      var _tpCTe = (tpCTe)Report.GetColumnValue(&quot;cteProc.CTe.infCte.ide.tpCTe&quot;);
+      var _modal = (modal)Report.GetColumnValue(&quot;cteProc.CTe.infCte.ide.modal&quot;);
+      var qrCode = ((infCTeSupl)Report.GetColumnValue(&quot;cteProc.CTe.infCTeSupl&quot;));
+      
+      Barcode1.Visible = qrCode != null;
+
+      dataBandDadosCarga.Visible = _tpCTe == tpCTe.Normal;
+      dataBandValor.Visible = true;
+      dataBandImpostos.Visible = true;
+      dataBandDocumentosOriginarios.Visible = _tpCTe == tpCTe.Normal;
+      dataBandCTeComplementoAnulacao.Visible = _tpCTe == tpCTe.Complemento || _tpCTe == tpCTe.Anulacao;
+      dataBandObservacao.Visible = true;
+      dataBandRodoviario.Visible = _tpCTe == tpCTe.Normal &amp;&amp; _modal == modal.rodoviario;
+      dataBandAereo.Visible = _tpCTe == tpCTe.Normal &amp;&amp; _modal == modal.aereo;
+      childDatabandFooter.Visible = !string.IsNullOrEmpty((String)Report.GetParameterValue(&quot;Desenvolvedor&quot;));
+      
+      dataProdutosPerigososHeader.Visible = false;
+      dataProdutosPerigosos.Visible = false;
+      
+      var veiculosNovos = Report.GetDataSource(&quot;cteProc.CTe.infCte.infCTeNorm.veicNovos&quot;);
+      veiculosNovos.Init();        
+      CabecalhoVeiculoNovo.Visible = veiculosNovos.HasMoreRows;
+      DadosVeiculosNovos.Visible = veiculosNovos.HasMoreRows;
+    }
+    
+    private string GetModalName(modal procModal)
+    {
+      string name = &quot;Rodoviário&quot;;
+
+      switch (procModal)
+      {
+          case modal.aereo:
+              name = &quot;Aéreo&quot;;
+              break;
+          case modal.aquaviario:
+              name = &quot;Aquaviário&quot;;
+              break;
+          case modal.ferroviario:
+              name = &quot;Ferroviário&quot;;
+              break;
+          case modal.dutoviario:
+              name = &quot;Dutoviário&quot;;
+              break;
+          case modal.multimodal:
+              name = &quot;Multimodal&quot;;
+              break;
+      }
+
+      return name.ToUpper();
+    }
+
+    private void PageHeader1_BeforePrint(object sender, EventArgs e)
+    {
+      #region Definindo o nome do Modal
+      var _modal = (modal)Report.GetColumnValue(&quot;cteProc.CTe.infCte.ide.modal&quot;);
+      var nomeModal = GetModalName(_modal);
+      if (!Text24.Text.Contains(nomeModal)) {
+        Text24.Text = Text24.Text + nomeModal;
+      }
+      #endregion
+      
+      #region Banda inicial sempre deve aparecer!
+      switch(Convert.ToInt32((tpCTe)Report.GetColumnValue(&quot;cteProc.CTe.infCte.ide.tpCTe&quot;)))
+      {
+        case 0: Text41.Text = &quot;NORMAL&quot;; break;
+        case 1: Text41.Text = &quot;COMPLEMENTO&quot;; break;
+        case 2: Text41.Text = &quot;ANULAÇÃO&quot;; break;
+        case 3: Text41.Text = &quot;SUBSTITUTO&quot;; break;
+      }
+      
+      switch(Convert.ToInt32((tpCTe)Report.GetColumnValue(&quot;cteProc.CTe.infCte.ide.tpServ&quot;)))
+      {
+        case 0: Text42.Text = &quot;NORMAL&quot;; break;
+        case 1: Text42.Text = &quot;SUBCONTRATAÇÃO&quot;; break;
+        case 2: Text42.Text = &quot;REDESPACHO&quot;; break;
+        case 3: Text42.Text = &quot;REDESPACHO INTERMEDIÁRIO&quot;; break;
+        case 4: Text42.Text = &quot;SERV. VINC. MULTIMODAL&quot;; break;
+        case 6: Text42.Text = &quot;TRANSPORTE DE PESSOAS&quot;; break;
+        case 7: Text42.Text = &quot;TRANSPORTE DE VALORES&quot;; break;
+        case 8: Text42.Text = &quot;EXCESSO DE BAGAGEM&quot;; break;
+      }
+          
+      string cnpjRemetente = ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.rem.CNPJ&quot;));
+      if (string.IsNullOrEmpty(cnpjRemetente))
+        cnpjRemetente = ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.rem.CPF&quot;));
+      Text62.Text = FormatarCampo(cnpjRemetente, 'd');
+      
+      string cnpjExpedidor = ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.exped.CNPJ&quot;));
+      if (string.IsNullOrEmpty(cnpjExpedidor))
+        cnpjExpedidor = ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.exped.CPF&quot;));
+      Text94.Text = FormatarCampo(cnpjExpedidor, 'd');
+      
+      string cnpjDestinatario = ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.dest.CNPJ&quot;));
+      if (string.IsNullOrEmpty(cnpjDestinatario))
+        cnpjDestinatario = ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.dest.CPF&quot;));
+      Text78.Text = FormatarCampo(cnpjDestinatario, 'd');
+      
+      string cnpjRecebedor = ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.receb.CNPJ&quot;));
+      if (string.IsNullOrEmpty(cnpjRecebedor))
+        cnpjRecebedor = ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.receb.CPF&quot;));
+      Text109.Text = FormatarCampo(cnpjRecebedor, 'd');
+      
+      string cnpjTomador = ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.ide.toma4.CNPJ&quot;));
+      if (string.IsNullOrEmpty(cnpjTomador))
+        cnpjTomador = ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.ide.toma4.CPF&quot;));
+      
+      int toma = 4;      
+      if ((tomaBase3)Report.GetColumnValue(&quot;cteProc.CTe.infCte.ide.tomaBase3&quot;) != null)
+        toma = Convert.ToInt32((toma)Report.GetColumnValue(&quot;cteProc.CTe.infCte.ide.tomaBase3.toma&quot;));
+      else if ((toma?)Report.GetColumnValue(&quot;cteProc.CTe.infCte.ide.toma4.toma&quot;) != null)
+        toma = Convert.ToInt32((toma)Report.GetColumnValue(&quot;cteProc.CTe.infCte.ide.toma4.toma&quot;));
+            
+      switch (toma)
+      {
+        case 0: //REMETENTE
+          Text44.Text = &quot;REMETENTE&quot;;
+          Text118.Text = &quot;[cteProc.CTe.infCte.rem.xNome]&quot;;
+          Text119.Text = &quot;[cteProc.CTe.infCte.rem.enderReme.xMun] - [cteProc.CTe.infCte.rem.enderReme.ProxyUF]&quot;;
+          Text120.Text = &quot;[FormatarCampo([cteProc.CTe.infCte.rem.enderReme.CEP],'c')]&quot;;
+          Text121.Text = &quot;[cteProc.CTe.infCte.rem.enderReme.xLgr], [cteProc.CTe.infCte.rem.enderReme.nro] [cteProc.CTe.infCte.rem.enderReme.xCpl]&quot;;
+          Text123.Text = &quot;[cteProc.CTe.infCte.rem.enderReme.xPais] - [cteProc.CTe.infCte.rem.enderReme.cPais]&quot;;
+          Text126.Text = FormatarCampo(cnpjRemetente,'d');
+          Text127.Text = &quot;[cteProc.CTe.infCte.rem.IE]&quot;;
+          Text128.Text = &quot;[FormatarCampo([cteProc.CTe.infCte.rem.fone],'f')]&quot;;
+          break;
+        case 1: //Expedidor
+          Text44.Text = &quot;EXPEDIDOR&quot;;
+          Text118.Text = &quot;[cteProc.CTe.infCte.exped.xNome]&quot;;
+          Text119.Text = &quot;[cteProc.CTe.infCte.exped.enderExped.xMun] - [cteProc.CTe.infCte.exped.enderExped.ProxyUF]&quot;;
+          Text120.Text = &quot;[FormatarCampo([cteProc.CTe.infCte.exped.enderExped.CEP],'c')]&quot;;
+          Text121.Text = &quot;[cteProc.CTe.infCte.exped.enderExped.xLgr], [cteProc.CTe.infCte.exped.enderExped.nro] [cteProc.CTe.infCte.exped.enderExped.xCpl]&quot;;
+          Text123.Text = &quot;[cteProc.CTe.infCte.exped.enderExped.xPais] - [cteProc.CTe.infCte.exped.enderExped.cPais]&quot;;
+          Text126.Text = FormatarCampo(cnpjExpedidor,'d');
+          Text127.Text = &quot;[cteProc.CTe.infCte.exped.IE]&quot;;
+          Text128.Text = &quot;[FormatarCampo([cteProc.CTe.infCte.exped.fone],'f')]&quot;;          
+          break;
+        case 2: //Recebedor
+          Text44.Text = &quot;RECEBEDOR&quot;;
+          Text118.Text = &quot;[cteProc.CTe.infCte.receb.xNome]&quot;;
+          Text119.Text = &quot;[cteProc.CTe.infCte.receb.enderReceb.xMun] - [cteProc.CTe.infCte.receb.enderReceb.ProxyUF]&quot;;
+          Text120.Text = &quot;[FormatarCampo([cteProc.CTe.infCte.receb.enderReceb.CEP],'c')]&quot;;
+          Text121.Text = &quot;[cteProc.CTe.infCte.receb.enderReceb.xLgr], [cteProc.CTe.infCte.receb.enderReceb.nro] [cteProc.CTe.infCte.receb.enderReceb.xCpl]&quot;;
+          Text123.Text = &quot;[cteProc.CTe.infCte.receb.enderReceb.xPais] - [cteProc.CTe.infCte.receb.enderReceb.cPais]&quot;;
+          Text126.Text = FormatarCampo(cnpjRecebedor,'d');
+          Text127.Text = &quot;[cteProc.CTe.infCte.receb.IE]&quot;;
+          Text128.Text = &quot;[FormatarCampo([cteProc.CTe.infCte.receb.fone],'f')]&quot;; 
+          break;
+        case 3: //Destinatário
+          Text44.Text = &quot;DESTINATÁRIO&quot;;
+          Text118.Text = &quot;[cteProc.CTe.infCte.dest.xNome]&quot;;
+          Text119.Text = &quot;[cteProc.CTe.infCte.dest.enderDest.xMun] - [cteProc.CTe.infCte.dest.enderDest.ProxyUF]&quot;;
+          Text120.Text = &quot;[FormatarCampo([cteProc.CTe.infCte.dest.enderDest.CEP],'c')]&quot;;
+          Text121.Text = &quot;[cteProc.CTe.infCte.dest.enderDest.xLgr], [cteProc.CTe.infCte.dest.enderDest.nro] [cteProc.CTe.infCte.dest.enderDest.xCpl]&quot;;
+          Text123.Text = &quot;[cteProc.CTe.infCte.dest.enderDest.xPais] - [cteProc.CTe.infCte.dest.enderDest.cPais]&quot;;
+          Text126.Text = FormatarCampo(cnpjDestinatario,'d');
+          Text127.Text = &quot;[cteProc.CTe.infCte.dest.IE]&quot;;
+          Text128.Text = &quot;[FormatarCampo([cteProc.CTe.infCte.dest.fone],'f')]&quot;;
+          break;
+        case 4: //Outros
+          Text44.Text = &quot;OUTROS&quot;;
+          Text118.Text = &quot;[cteProc.CTe.infCte.ide.toma4.xNome]&quot;;
+          Text119.Text = &quot;[cteProc.CTe.infCte.ide.toma4.enderToma.xMun] - [cteProc.CTe.infCte.ide.toma4.enderToma.ProxyUF]&quot;;
+          Text120.Text = FormatarCampo(((Int64)Report.GetColumnValue(&quot;cteProc.CTe.infCte.ide.toma4.enderToma.CEP&quot;)).ToString(), 'c');
+          Text121.Text = &quot;[cteProc.CTe.infCte.ide.toma4.enderToma.xLgr], [cteProc.CTe.infCte.ide.toma4.enderToma.nro] [cteProc.CTe.infCte.ide.toma4.enderToma.xCpl]&quot;;
+          Text123.Text = &quot;[cteProc.CTe.infCte.ide.toma4.enderToma.xPais] - [cteProc.CTe.infCte.ide.toma4.enderToma.cPais]&quot;;            
+          Text126.Text = FormatarCampo(cnpjTomador,'d');
+          Text127.Text = &quot;[cteProc.CTe.infCte.ide.toma4.IE]&quot;;
+          Text128.Text = FormatarCampo((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.ide.toma4.fone&quot;), 'f');
+          
+          break;
+      }
+      
+      if ((Nullable&lt;forPag&gt;)Report.GetColumnValue(&quot;cteProc.CTe.infCte.ide.forPag&quot;) != null)
+      {        
+        switch(Convert.ToInt32((Nullable&lt;forPag&gt;)Report.GetColumnValue(&quot;cteProc.CTe.infCte.ide.forPag&quot;)))
+        {
+          case 0: Text43.Text = &quot;PAGO&quot;; break;
+          case 1: Text43.Text = &quot;A PAGAR&quot;; break;
+          case 2: Text43.Text = &quot;OUTROS&quot;; break;
+        }
+      }
+      
+      if (string.IsNullOrEmpty((String)Report.GetColumnValue(&quot;cteProc.protCTe.infProt.nProt&quot;)))
+        Text26.Text = &quot;CTe sem autorização de uso da SEFAZ&quot;;
+      #endregion
+            
+      #region Dados do CTe complemento ou anulação
+      if (dataBandCTeComplementoAnulacao.Visible)
+      {
+        switch((tpCTe)Report.GetColumnValue(&quot;cteProc.CTe.infCte.ide.tpCTe&quot;))
+        {
+          case tpCTe.Complemento:
+            Text211.Text = FormatarChave((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCteComp.chCTe&quot;));
+            break;
+          case tpCTe.Anulacao:
+            Text211.Text = FormatarChave((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCteAnu.chCte&quot;));
+            Text211.Text += &quot;   emissão: &quot; + FormatDateTime(((DateTime)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCteAnu.dEmi&quot;)).Date, @&quot;dd/MM/yyyy&quot;);
+            break;
+        }
+        
+      }
+      #endregion
+      
+      #region Banda com os dados da carga
+      if (dataBandDadosCarga.Visible)              
+      {       
+        var seguros = Report.GetDataSource(&quot;cteProc.CTe.infCte.infCTeNorm.seg&quot;);
+        seguros.Init();        
+        if (seguros.HasMoreRows)
+        {           
+          switch(Convert.ToInt32((respSeg)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.seg.respSeg&quot;)))
+          {
+            case 0: Text142.Text = &quot;REMETENTE&quot;; break;
+            case 1: Text142.Text = &quot;EXPEDIDOR&quot;; break;
+            case 2: Text142.Text = &quot;RECEBEDOR&quot;; break;
+            case 3: Text142.Text = &quot;DESTINATÁRIO&quot;; break;
+            case 4: Text142.Text = &quot;EMITENTE&quot;; break;
+            case 5: Text142.Text = &quot;TOMADOR&quot;; break;
+          }          
+        }
+
+        var qtdes = Report.GetDataSource(&quot;cteProc.CTe.infCte.infCTeNorm.infCarga.infQ&quot;); 
+        qtdes.Init();
+        while (qtdes.HasMoreRows)
+        {
+          switch (Convert.ToInt32((cUnid)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infCarga.infQ.cUnid&quot;)))
+          {
+            case 0: 
+              Text146.Text += FormatNumber(((Decimal)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infCarga.infQ.qCarga&quot;)), 3) + &quot;\n&quot;;
+              break;
+            case 1: 
+              Text148.Text += FormatNumber(((Decimal)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infCarga.infQ.qCarga&quot;)), 3) + &quot;\n&quot;;
+              break;
+            case 2: 
+              Text150.Text += FormatNumber(((Decimal)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infCarga.infQ.qCarga&quot;)), 3) + &quot;\n&quot;;
+              break;
+            case 3: 
+              Text152.Text += FormatNumber(((Decimal)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infCarga.infQ.qCarga&quot;)), 3) + &quot;\n&quot;;
+              break;
+            case 4: 
+              Text154.Text += FormatNumber(((Decimal)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infCarga.infQ.qCarga&quot;)), 3) + &quot;\n&quot;;
+              break;
+            case 5: 
+              Text158.Text += FormatNumber(((Decimal)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infCarga.infQ.qCarga&quot;)), 3) + &quot;\n&quot;;
+              break;
+          }
+          qtdes.Next();
+        }      
+      }
+      #endregion
+      
+      #region Banda de valores do CTe
+      if (dataBandValor.Visible)
+      {
+        bool aux = true;
+        var comp = Report.GetDataSource(&quot;cteProc.CTe.infCte.vPrest.Comp&quot;); 
+        comp.Init();
+        while (comp.HasMoreRows)
+        {
+          string texto = ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.vPrest.Comp.xNome&quot;)) + &quot; ..... &quot; +  FormatCurrency(((Decimal)Report.GetColumnValue(&quot;cteProc.CTe.infCte.vPrest.Comp.vComp&quot;)),2);
+        
+          if (aux)
+            Text203.Text += texto + &quot;\n&quot;;
+          else
+            Text204.Text += texto + &quot;\n&quot;;
+          
+          aux = !aux;
+          comp.Next();
+        }
+      }
+      #endregion
+      
+      #region Banda com os impostos
+      if (dataBandImpostos.Visible)
+      {
+        var icms = (ICMSBasico)Report.GetColumnValue(&quot;cteProc.CTe.infCte.imp.ICMS.TipoICMS&quot;);
+        if (icms is ICMSSN) //Simples Nacional      
+          Text188.Text = &quot;SN - SIMPLES NACIONAL&quot;;
+        else if (icms is ICMS00)
+        {
+          Text188.Text = &quot;00 - TRIBUTAÇÃO NORMAL DO ICMS&quot;;
+        
+          ICMS00 icms00 = icms as ICMS00;
+          Text194.Text = FormatCurrency(icms00.vBC ,2);
+          Text195.Text = FormatNumber(icms00.pICMS ,2) + &quot;%&quot;;
+          Text196.Text = FormatCurrency(icms00.vICMS ,2);
+        }
+        else if (icms is ICMS20)
+        {
+          Text188.Text = &quot;20 - TRIBUTAÇÃO COM REDUÇÃO DE BC DO ICMS&quot;;
+        
+          ICMS20 icms20 = icms as ICMS20;
+          Text194.Text = FormatCurrency(icms20.vBC ,2);
+          Text195.Text = FormatNumber(icms20.pICMS ,2) + &quot;%&quot;;
+          Text196.Text = FormatCurrency(icms20.vICMS ,2);
+          Text197.Text = FormatNumber(icms20.pRedBC ,2) + &quot;%&quot;;       
+        }
+        else if (icms is ICMS45)
+        {
+          ICMS45 icms45 = icms as ICMS45;
+          if (icms45.CST == CST.ICMS40)
+            Text188.Text = &quot;40 - ICMS ISENÇÃO&quot;;
+          if (icms45.CST == CST.ICMS41)
+            Text188.Text = &quot;41 - ICMS NÃO TRIBUTADO&quot;;        
+          if (icms45.CST == CST.ICMS51)
+            Text188.Text = &quot;51 - ICMS DIFERIDO&quot;;
+        }
+        else if (icms is ICMS60)
+        {
+          Text188.Text = &quot;60 - ICMS COBRADO ANTERIORMENTE POR SUBSTITUIÇÃO TRIBUTÁRIA&quot;;
+        }
+        else if (icms is ICMS90)
+        {
+          Text188.Text = &quot;90 - ICMS OUTROS&quot;;
+        
+          ICMS90 icms90 = icms as ICMS90;
+          Text194.Text = FormatCurrency(icms90.vBC ,2);
+          Text195.Text = FormatNumber(icms90.pICMS ,2) + &quot;%&quot;;
+          Text196.Text = FormatCurrency(icms90.vICMS ,2);
+          Text197.Text = FormatNumber(icms90.pRedBC ,2) + &quot;%&quot;;  
+        }
+        else if (icms is ICMSOutraUF)
+        {
+          Text188.Text = &quot;90 - ICMS Outra UF&quot;;
+        
+          ICMSOutraUF icmsOutraUf = icms as ICMSOutraUF;
+          Text194.Text = FormatCurrency(icmsOutraUf.vBCOutraUF ,2);
+          Text195.Text = FormatNumber(icmsOutraUf.pICMSOutraUF ,2) + &quot;%&quot;;
+          Text196.Text = FormatCurrency(icmsOutraUf.vICMSOutraUF ,2);
+          Text197.Text = icmsOutraUf.pRedBCOutraUFSpecified ? FormatNumber(icmsOutraUf.pRedBCOutraUF ,2) + &quot;%&quot; : &quot;&quot;;  
+        }
+      }
+      #endregion
+          
+      #region Banda com os documentos originários
+      if (dataBandDocumentosOriginarios.Visible)
+      {
+        Text193.Text = string.Empty; //Coluna 1 dos documentos
+        Text205.Text = string.Empty; //Coluna 2 dos documentos               
+      
+        bool aux = true;      
+        var _infDocNFe = Report.GetDataSource(&quot;cteProc.CTe.infCte.infCTeNorm.infDoc.infNFe&quot;);
+        _infDocNFe.Init();
+        while (_infDocNFe.HasMoreRows)
+        {
+          string texto = &quot;NFe &quot; + ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infDoc.infNFe.chave&quot;)).Substring(25,9) + &quot;   &quot; +  FormatarChave((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infDoc.infNFe.chave&quot;));
+          if (aux)
+            Text193.Text += texto + &quot;\n&quot;;
+          else
+            Text205.Text += texto + &quot;\n&quot;;
+        
+          aux = !aux;
+          _infDocNFe.Next();
+        }   
+
+        var _infDocNF = Report.GetDataSource(&quot;cteProc.CTe.infCte.infCTeNorm.infDoc.infNF&quot;);
+        _infDocNF.Init();
+        while (_infDocNF.HasMoreRows)
+        {
+          string texto = &quot;NF               &quot; + FormatarCampo((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.rem.CNPJ&quot;),'d')   + &quot;         &quot; +                                                         
+                                              ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infDoc.infNF.nDoc&quot;)) + &quot;-&quot;  + 
+                                              ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infDoc.infNF.serie&quot;));                                              
+            
+          if (aux)                             
+            Text193.Text += texto + &quot;\n&quot;;
+          else
+            Text205.Text += texto + &quot;\n&quot;;
+        
+          aux = !aux;
+          _infDocNF.Next();
+        }
+
+        var _infDocOutros = Report.GetDataSource(&quot;cteProc.CTe.infCte.infCTeNorm.infDoc.infOutros&quot;);      
+        _infDocOutros.Init();
+        while (_infDocOutros.HasMoreRows)
+        {
+          string texto = &quot;&quot;;
+          switch (Convert.ToInt32((tpDoc)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infDoc.infOutros.tpDoc&quot;)))
+          {
+            case  0: texto = &quot;DECLARAÇÃO      Declaração Doc.: &quot; + (String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infDoc.infOutros.nDoc&quot;); break;
+            case 10: texto = &quot;DUTOVIÁRIO      Dutoviário Doc.: &quot; + (String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infDoc.infOutros.nDoc&quot;); break;
+            default: texto = &quot;OUTROS      Doc.: &quot; + ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infDoc.infOutros.nDoc&quot;)) + &quot;    Descr.: &quot; + (String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infDoc.infOutros.descOutros&quot;); break; 
+          }
+        
+          if (aux)                             
+            Text193.Text += texto + &quot;\n&quot;;
+          else
+            Text205.Text += texto + &quot;\n&quot;;
+        
+          aux = !aux;
+          _infDocOutros.Next();
+        }
+        
+        if (!aux){
+           Text205.Text += &quot;\n&quot;;
+        }
+        
+      }
+      #endregion           
+     
+      #region Banda das observações do contribuite
+      if (dataBandObservacao.Visible)
+      {
+        if ((Boolean)Report.GetParameterValue(&quot;QuebrarLinhasObservacao&quot;))
+          Text168.Text = ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.compl.xObs&quot;)).Replace(&quot;;&quot;, Environment.NewLine);;         
+        
+        Text185.Visible = ((Boolean)Report.GetParameterValue(&quot;DoocumentoCancelado&quot;));
+        Text186.Visible = Convert.ToInt32((TipoAmbiente)Report.GetColumnValue(&quot;cteProc.CTe.infCte.ide.tpAmb&quot;)) == 2;
+      }
+      #endregion
+                       
+      #region Dados específicos do modal rodivário
+      if (dataBandRodoviario.Visible)
+      {
+        Text183.Text = &quot;NÃO&quot;;
+        if ((Boolean)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infModal.ContainerModal.lotaSpecified&quot;))
+          if (Convert.ToInt32((Nullable&lt;lota&gt;)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infModal.ContainerModal.lota&quot;)) == 1)
+            Text183.Text = &quot;SIM&quot;;
+      }
+      #endregion
+          
+      #region Observações do fisco, sempre deve aparecer
+      //#592
+      Text173.Text = string.Empty;
+      Text207.Text = string.Empty;
+      var dsObsCont = Report.GetDataSource(&quot;cteProc.CTe.infCte.compl.ObsCont&quot;);
+      dsObsCont.Init();
+      while (dsObsCont.HasMoreRows)
+      {       
+        Text173.Text += ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.compl.ObsCont.xCampo&quot;)) + Environment.NewLine;
+        string texto = ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.compl.ObsCont.xTexto&quot;));       
+        while (texto.Length &gt; 70)
+        {
+          Text173.Text += Environment.NewLine;
+          Text207.Text += texto.Substring(0,70) + Environment.NewLine;
+          texto = texto.Substring(70);
+        }
+        Text207.Text += texto + Environment.NewLine;  
+        dsObsCont.Next();        
+      }
+                       
+      //#592
+      Text208.Text = string.Empty;
+      Text209.Text = string.Empty;
+      var dsObsFisco = Report.GetDataSource(&quot;cteProc.CTe.infCte.compl.ObsFisco&quot;);
+      dsObsFisco.Init();
+      while (dsObsFisco.HasMoreRows)
+      {       
+        Text208.Text += ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.compl.ObsFisco.xCampo&quot;));
+        string texto = ((String)Report.GetColumnValue(&quot;cteProc.CTe.infCte.compl.ObsFisco.xTexto&quot;));
+        while (texto.Length &gt; 45)
+        {
+          Text208.Text += Environment.NewLine;
+          Text209.Text += texto.Substring(0,45) + Environment.NewLine;
+          texto = texto.Substring(45);
+        }
+        Text209.Text += texto + Environment.NewLine;  
+        
+        dsObsFisco.Next();        
+      }
+      #endregion
+       
+    }
+    
+    private void dataBandRodoviario_BeforePrint(object sender, EventArgs e)
+    {
+      if (!dataBandRodoviario.Visible)
+        return;
+      
+      var _rodo = (rodo)(ContainerModal)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infModal.ContainerModal&quot;);
+      
+      Text181.Text = _rodo.RNTRC;
+      Text182.Text = _rodo.CIOT;
+      Text184.Text = _rodo.dPrev.HasValue ? _rodo.dPrev.Value.ToString(&quot;dd/MM/yyyy HH:mm&quot;) : string.Empty;
+    }
+
+    private void dataBandAereo_BeforePrint(object sender, EventArgs e)
+    {     
+      if (!dataBandAereo.Visible)                                                    
+        return;
+        
+      var _aereo = (aereo)(ContainerModal)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infModal.ContainerModal&quot;);
+      
+      Text230.Text = _aereo.nMinu;
+      Text240.Text = _aereo.nOCA;
+      Text233.Text = _aereo.dPrevAereo.ToString(&quot;dd/MM/yyyy HH:mm&quot;);
+      Text231.Text = _aereo.natCarga.xDime;
+      Text242.Text = string.Join(&quot;,&quot;, _aereo.natCarga.cInfManu);
+                                                                                                                      
+      Text247.Text = _aereo.tarifa.CL.ToString();
+      Text248.Text = _aereo.tarifa.cTar;
+      Text249.Text = _aereo.tarifa.vTar.ToString(&quot;C2&quot;);  
+      
+      dataProdutosPerigososHeader.Visible = _aereo.peri != null &amp;&amp; _aereo.peri.Count &gt; 0;
+      dataProdutosPerigosos.Visible = _aereo.peri != null &amp;&amp; _aereo.peri.Count &gt; 0;
+    }
+
+    private void dataProdutosPerigosos_BeforePrint(object sender, EventArgs e)
+    {    
+      if (!dataProdutosPerigosos.Visible)                                                    
+        return;
+      
+      var _peri = (aereoPeri)Report.GetColumnValue(&quot;cteProc.CTe.infCte.infCTeNorm.infModal.ContainerModal.peri&quot;);
+      
+      if (_peri == null)
+        return;
+      
+      Text256.Text = _peri.nONU;
+      Text257.Text = _peri.qTotEmb;
+      Text258.Text = _peri.infTotAP.qTotProd.ToString(&quot;N4&quot;);
+      Text259.Text = _peri.infTotAP.uniAP.ToString();
+    }
+    
+  }
+}
+</ScriptText>
+  <Dictionary>
+    <BusinessObjectDataSource Name="cteProc" ReferenceName="cteProc" DataType="null" Enabled="true">
+      <Column Name="versao" DataType="null"/>
+      <Column Name="CTe" DataType="null">
+        <Column Name="versao" DataType="null"/>
+        <Column Name="ProxyVersao" DataType="System.String"/>
+        <Column Name="versaoSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+        <Column Name="infCte" DataType="null">
+          <Column Name="versao" DataType="null"/>
+          <Column Name="Id" DataType="System.String"/>
+          <Column Name="ide" DataType="null">
+            <Column Name="cUF" DataType="null"/>
+            <Column Name="cCT" DataType="System.Int32"/>
+            <Column Name="ProxycCT" DataType="System.String"/>
+            <Column Name="CFOP" DataType="System.Int32"/>
+            <Column Name="natOp" DataType="System.String"/>
+            <Column Name="forPag" DataType="null"/>
+            <Column Name="forPagSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+            <Column Name="mod" DataType="null"/>
+            <Column Name="serie" DataType="System.Int16"/>
+            <Column Name="nCT" DataType="System.Int64"/>
+            <Column Name="dhEmi" DataType="System.DateTimeOffset"/>
+            <Column Name="ProxydhEmi" DataType="System.String"/>
+            <Column Name="tpImp" DataType="null"/>
+            <Column Name="tpEmis" DataType="null"/>
+            <Column Name="cDV" DataType="System.Int32"/>
+            <Column Name="tpAmb" DataType="null"/>
+            <Column Name="tpCTe" DataType="null"/>
+            <Column Name="procEmi" DataType="null"/>
+            <Column Name="verProc" DataType="System.String"/>
+            <Column Name="indGlobalizado" DataType="System.Nullable`1[[System.Byte, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+            <Column Name="indGlobalizadoSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+            <Column Name="refCTE" DataType="System.String"/>
+            <Column Name="cMunEnv" DataType="System.Int64"/>
+            <Column Name="xMunEnv" DataType="System.String"/>
+            <Column Name="UFEnv" DataType="null"/>
+            <Column Name="ProxyUFEnv" DataType="System.String"/>
+            <Column Name="modal" DataType="null"/>
+            <Column Name="tpServ" DataType="null"/>
+            <Column Name="cMunIni" DataType="System.Int64"/>
+            <Column Name="xMunIni" DataType="System.String"/>
+            <Column Name="UFIni" DataType="null"/>
+            <Column Name="ProxyUFIni" DataType="System.String"/>
+            <Column Name="cMunFim" DataType="System.Int64"/>
+            <Column Name="xMunFim" DataType="System.String"/>
+            <Column Name="UFFim" DataType="null"/>
+            <Column Name="ProxyUFFim" DataType="System.String"/>
+            <BusinessObjectDataSource Name="infPercurso" DataType="null" Enabled="true">
+              <Column Name="UFPer" DataType="null"/>
+              <Column Name="ProxyUFPer" DataType="System.String"/>
+            </BusinessObjectDataSource>
+            <Column Name="retira" DataType="null"/>
+            <Column Name="xDetRetira" DataType="System.String"/>
+            <Column Name="indIEToma" DataType="null"/>
+            <Column Name="indIETomaSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+            <Column Name="tomaBase3" DataType="null">
+              <Column Name="toma" DataType="null"/>
+            </Column>
+            <Column Name="toma4" DataType="null">
+              <Column Name="toma" DataType="null"/>
+              <Column Name="CNPJ" DataType="System.String"/>
+              <Column Name="CPF" DataType="System.String"/>
+              <Column Name="IE" DataType="System.String"/>
+              <Column Name="xNome" DataType="System.String"/>
+              <Column Name="xFant" DataType="System.String"/>
+              <Column Name="fone" DataType="System.String"/>
+              <Column Name="enderToma" DataType="null">
+                <Column Name="xLgr" DataType="System.String"/>
+                <Column Name="nro" DataType="System.String"/>
+                <Column Name="xCpl" DataType="System.String"/>
+                <Column Name="xBairro" DataType="System.String"/>
+                <Column Name="cMun" DataType="System.Int64"/>
+                <Column Name="xMun" DataType="System.String"/>
+                <Column Name="CEP" DataType="System.Nullable`1[[System.Int64, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                <Column Name="ProxyCEP" DataType="System.String"/>
+                <Column Name="UF" DataType="null"/>
+                <Column Name="ProxyUF" DataType="System.String"/>
+                <Column Name="cPais" DataType="System.Nullable`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                <Column Name="cPaisSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+                <Column Name="xPais" DataType="System.String"/>
+              </Column>
+              <Column Name="email" DataType="System.String"/>
+            </Column>
+            <Column Name="dhCont" DataType="System.Nullable`1[[System.DateTime, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+            <Column Name="ProxydhCont" DataType="System.String"/>
+            <Column Name="xJust" DataType="System.String"/>
+          </Column>
+          <Column Name="compl" DataType="null">
+            <Column Name="xCaracAd" DataType="System.String"/>
+            <Column Name="xCaracSer" DataType="System.String"/>
+            <Column Name="xEmi" DataType="System.String"/>
+            <Column Name="fluxo" DataType="null">
+              <Column Name="xOrig" DataType="System.String"/>
+              <BusinessObjectDataSource Name="pass" DataType="null" Enabled="true">
+                <Column Name="xPass" DataType="System.String"/>
+              </BusinessObjectDataSource>
+              <Column Name="xDest" DataType="System.String"/>
+              <Column Name="xRota" DataType="System.String"/>
+            </Column>
+            <Column Name="Entrega" DataType="null">
+              <Column Name="comData" DataType="null">
+                <Column Name="tpPer" DataType="null"/>
+                <Column Name="dProg" DataType="System.DateTime"/>
+                <Column Name="ProxydProg" DataType="System.String"/>
+              </Column>
+              <Column Name="comHora" DataType="null">
+                <Column Name="tpHor" DataType="null"/>
+              </Column>
+            </Column>
+            <Column Name="origCalc" DataType="System.String"/>
+            <Column Name="destCalc" DataType="System.String"/>
+            <Column Name="xObs" DataType="System.String"/>
+            <BusinessObjectDataSource Name="ObsCont" DataType="null" Enabled="true">
+              <Column Name="xCampo" DataType="System.String"/>
+              <Column Name="xTexto" DataType="System.String"/>
+            </BusinessObjectDataSource>
+            <BusinessObjectDataSource Name="ObsFisco" DataType="null" Enabled="true">
+              <Column Name="xCampo" DataType="System.String"/>
+              <Column Name="xTexto" DataType="System.String"/>
+            </BusinessObjectDataSource>
+          </Column>
+          <Column Name="emit" DataType="null">
+            <Column Name="CNPJ" DataType="System.String"/>
+            <Column Name="IE" DataType="System.String"/>
+            <Column Name="IEST" DataType="System.String"/>
+            <Column Name="xNome" DataType="System.String"/>
+            <Column Name="xFant" DataType="System.String"/>
+            <Column Name="enderEmit" DataType="null">
+              <Column Name="xLgr" DataType="System.String"/>
+              <Column Name="nro" DataType="System.String"/>
+              <Column Name="xCpl" DataType="System.String"/>
+              <Column Name="xBairro" DataType="System.String"/>
+              <Column Name="cMun" DataType="System.Int64"/>
+              <Column Name="xMun" DataType="System.String"/>
+              <Column Name="CEP" DataType="System.Int64"/>
+              <Column Name="ProxyCEP" DataType="System.String"/>
+              <Column Name="UF" DataType="null"/>
+              <Column Name="ProxyUF" DataType="System.String"/>
+              <Column Name="fone" DataType="System.String"/>
+            </Column>
+          </Column>
+          <Column Name="toma" DataType="null">
+            <Column Name="CNPJ" DataType="System.String"/>
+            <Column Name="CPF" DataType="System.String"/>
+            <Column Name="IE" DataType="System.String"/>
+            <Column Name="xNome" DataType="System.String"/>
+            <Column Name="xFant" DataType="System.String"/>
+            <Column Name="fone" DataType="System.String"/>
+            <Column Name="enderToma" DataType="null">
+              <Column Name="xLgr" DataType="System.String"/>
+              <Column Name="nro" DataType="System.String"/>
+              <Column Name="xCpl" DataType="System.String"/>
+              <Column Name="xBairro" DataType="System.String"/>
+              <Column Name="cMun" DataType="System.Int64"/>
+              <Column Name="xMun" DataType="System.String"/>
+              <Column Name="CEP" DataType="System.Nullable`1[[System.Int64, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="ProxyCEP" DataType="System.String"/>
+              <Column Name="UF" DataType="null"/>
+              <Column Name="ProxyUF" DataType="System.String"/>
+              <Column Name="cPais" DataType="System.Nullable`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="cPaisSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+              <Column Name="xPais" DataType="System.String"/>
+            </Column>
+            <Column Name="email" DataType="System.String"/>
+          </Column>
+          <Column Name="rem" DataType="null">
+            <Column Name="CNPJ" DataType="System.String"/>
+            <Column Name="CPF" DataType="System.String"/>
+            <Column Name="IE" DataType="System.String"/>
+            <Column Name="xNome" DataType="System.String"/>
+            <Column Name="xFant" DataType="System.String"/>
+            <Column Name="fone" DataType="System.String"/>
+            <Column Name="enderReme" DataType="null">
+              <Column Name="xLgr" DataType="System.String"/>
+              <Column Name="nro" DataType="System.String"/>
+              <Column Name="xCpl" DataType="System.String"/>
+              <Column Name="xBairro" DataType="System.String"/>
+              <Column Name="cMun" DataType="System.Int64"/>
+              <Column Name="xMun" DataType="System.String"/>
+              <Column Name="CEP" DataType="System.Int64"/>
+              <Column Name="ProxyCEP" DataType="System.String"/>
+              <Column Name="UF" DataType="null"/>
+              <Column Name="ProxyUF" DataType="System.String"/>
+              <Column Name="cPais" DataType="System.Nullable`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="cPaisSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+              <Column Name="xPais" DataType="System.String"/>
+            </Column>
+            <Column Name="email" DataType="System.String"/>
+            <Column Name="locColeta" DataType="null">
+              <Column Name="CNPJ" DataType="System.String"/>
+              <Column Name="CPF" DataType="System.String"/>
+              <Column Name="xNome" DataType="System.String"/>
+              <Column Name="xLgr" DataType="System.String"/>
+              <Column Name="nro" DataType="System.String"/>
+              <Column Name="xCpl" DataType="System.String"/>
+              <Column Name="xBairro" DataType="System.String"/>
+              <Column Name="cMun" DataType="System.Int64"/>
+              <Column Name="xMun" DataType="System.String"/>
+              <Column Name="UF" DataType="null"/>
+              <Column Name="ProxyUF" DataType="System.String"/>
+            </Column>
+          </Column>
+          <Column Name="exped" DataType="null">
+            <Column Name="CNPJ" DataType="System.String"/>
+            <Column Name="CPF" DataType="System.String"/>
+            <Column Name="IE" DataType="System.String"/>
+            <Column Name="xNome" DataType="System.String"/>
+            <Column Name="fone" DataType="System.String"/>
+            <Column Name="enderExped" DataType="null">
+              <Column Name="xLgr" DataType="System.String"/>
+              <Column Name="nro" DataType="System.String"/>
+              <Column Name="xCpl" DataType="System.String"/>
+              <Column Name="xBairro" DataType="System.String"/>
+              <Column Name="cMun" DataType="System.Int64"/>
+              <Column Name="xMun" DataType="System.String"/>
+              <Column Name="CEP" DataType="System.Int64"/>
+              <Column Name="ProxyCEP" DataType="System.String"/>
+              <Column Name="UF" DataType="null"/>
+              <Column Name="ProxyUF" DataType="System.String"/>
+              <Column Name="cPais" DataType="System.Nullable`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="cPaisSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+              <Column Name="xPais" DataType="System.String"/>
+            </Column>
+            <Column Name="email" DataType="System.String"/>
+          </Column>
+          <Column Name="receb" DataType="null">
+            <Column Name="CNPJ" DataType="System.String"/>
+            <Column Name="CPF" DataType="System.String"/>
+            <Column Name="IE" DataType="System.String"/>
+            <Column Name="xNome" DataType="System.String"/>
+            <Column Name="fone" DataType="System.String"/>
+            <Column Name="enderReceb" DataType="null">
+              <Column Name="xLgr" DataType="System.String"/>
+              <Column Name="nro" DataType="System.String"/>
+              <Column Name="xCpl" DataType="System.String"/>
+              <Column Name="xBairro" DataType="System.String"/>
+              <Column Name="cMun" DataType="System.Int64"/>
+              <Column Name="xMun" DataType="System.String"/>
+              <Column Name="CEP" DataType="System.Int64"/>
+              <Column Name="ProxyCEP" DataType="System.String"/>
+              <Column Name="UF" DataType="null"/>
+              <Column Name="ProxyUF" DataType="System.String"/>
+              <Column Name="cPais" DataType="System.Nullable`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="cPaisSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+              <Column Name="xPais" DataType="System.String"/>
+            </Column>
+            <Column Name="email" DataType="System.String"/>
+          </Column>
+          <Column Name="dest" DataType="null">
+            <Column Name="CNPJ" DataType="System.String"/>
+            <Column Name="CPF" DataType="System.String"/>
+            <Column Name="IE" DataType="System.String"/>
+            <Column Name="xNome" DataType="System.String"/>
+            <Column Name="fone" DataType="System.String"/>
+            <Column Name="ISUF" DataType="System.String"/>
+            <Column Name="enderDest" DataType="null">
+              <Column Name="xLgr" DataType="System.String"/>
+              <Column Name="nro" DataType="System.String"/>
+              <Column Name="xCpl" DataType="System.String"/>
+              <Column Name="xBairro" DataType="System.String"/>
+              <Column Name="cMun" DataType="System.Int64"/>
+              <Column Name="xMun" DataType="System.String"/>
+              <Column Name="CEP" DataType="System.Int64"/>
+              <Column Name="ProxyCEP" DataType="System.String"/>
+              <Column Name="UF" DataType="null"/>
+              <Column Name="ProxyUF" DataType="System.String"/>
+              <Column Name="cPais" DataType="System.Nullable`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="cPaisSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+              <Column Name="xPais" DataType="System.String"/>
+            </Column>
+            <Column Name="email" DataType="System.String"/>
+            <Column Name="locEnt" DataType="null">
+              <Column Name="CNPJ" DataType="System.String"/>
+              <Column Name="CPF" DataType="System.String"/>
+              <Column Name="xNome" DataType="System.String"/>
+              <Column Name="xLgr" DataType="System.String"/>
+              <Column Name="nro" DataType="System.String"/>
+              <Column Name="xCpl" DataType="System.String"/>
+              <Column Name="xBairro" DataType="System.String"/>
+              <Column Name="cMun" DataType="System.Int64"/>
+              <Column Name="xMun" DataType="System.String"/>
+              <Column Name="UF" DataType="null"/>
+              <Column Name="ProxyUF" DataType="System.String"/>
+            </Column>
+          </Column>
+          <Column Name="vPrest" DataType="null">
+            <Column Name="vTPrest" DataType="System.Decimal"/>
+            <Column Name="vRec" DataType="System.Decimal"/>
+            <BusinessObjectDataSource Name="BusinessObjectDataSource1" Alias="Comp" DataType="null" PropName="Comp" Enabled="true">
+              <Column Name="xNome" DataType="System.String"/>
+              <Column Name="vComp" DataType="System.Decimal"/>
+            </BusinessObjectDataSource>
+          </Column>
+          <Column Name="imp" DataType="null">
+            <Column Name="ICMS" DataType="null">
+              <Column Name="TipoICMS" DataType="null">
+                <Column Name="CST" DataType="null"/>
+              </Column>
+            </Column>
+            <Column Name="vTotTrib" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+            <Column Name="vTotTribSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+            <Column Name="infAdFisco" DataType="System.String"/>
+            <Column Name="ICMSUFFim" DataType="null">
+              <Column Name="vBCUFFim" DataType="System.Decimal"/>
+              <Column Name="pFCPUFFim" DataType="System.Decimal"/>
+              <Column Name="pICMSUFFim" DataType="System.Decimal"/>
+              <Column Name="pICMSInter" DataType="System.Decimal"/>
+              <Column Name="pICMSInterPart" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="pICMSInterPartSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+              <Column Name="vFCPUFFim" DataType="System.Decimal"/>
+              <Column Name="vICMSUFFim" DataType="System.Decimal"/>
+              <Column Name="vICMSUFIni" DataType="System.Decimal"/>
+            </Column>
+            <Column Name="infTribFed" DataType="null">
+              <Column Name="vPIS" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="vCOFINS" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="vIR" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="vINSS" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="vCSLL" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="vPISSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+              <Column Name="vCOFINSSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+              <Column Name="vIRSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+              <Column Name="vINSSSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+              <Column Name="vCSLLSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+            </Column>
+          </Column>
+          <Column Name="infCTeNorm" DataType="null">
+            <Column Name="infServico" DataType="null">
+              <Column Name="xDescServ" DataType="System.String"/>
+              <Column Name="infQ" Enabled="false" DataType="null"/>
+            </Column>
+            <Column Name="infQ" DataType="null">
+              <Column Name="qCarga" DataType="System.Decimal"/>
+            </Column>
+            <BusinessObjectDataSource Name="infDocRef" DataType="null" Enabled="true">
+              <Column Name="nDoc" DataType="System.String"/>
+              <Column Name="serie" DataType="System.Int16"/>
+              <Column Name="subserie" DataType="System.Nullable`1[[System.Int16, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="subserieSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+              <Column Name="dEmi" DataType="System.DateTime"/>
+              <Column Name="ProxydEmi" DataType="System.String"/>
+              <Column Name="vDoc" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="vDocSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+            </BusinessObjectDataSource>
+            <Column Name="infCarga" DataType="null">
+              <Column Name="vCarga" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="proPred" DataType="System.String"/>
+              <Column Name="xOutCat" DataType="System.String"/>
+              <BusinessObjectDataSource Name="infQ" DataType="null" Enabled="true">
+                <Column Name="cUnid" DataType="null"/>
+                <Column Name="tpMed" DataType="System.String"/>
+                <Column Name="qCarga" DataType="System.Decimal"/>
+              </BusinessObjectDataSource>
+              <Column Name="vCargaAverb" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="infDoc" DataType="null">
+                <BusinessObjectDataSource Name="infNF" DataType="null" Enabled="true">
+                  <Column Name="nRoma" DataType="System.String"/>
+                  <Column Name="nPed" DataType="System.String"/>
+                  <Column Name="mod" DataType="null"/>
+                  <Column Name="serie" DataType="System.String"/>
+                  <Column Name="nDoc" DataType="System.String"/>
+                  <Column Name="dEmi" DataType="System.DateTime"/>
+                  <Column Name="ProxyddEmi" DataType="System.String"/>
+                  <Column Name="vBC" DataType="System.Decimal"/>
+                  <Column Name="vICMS" DataType="System.Decimal"/>
+                  <Column Name="vBCST" DataType="System.Decimal"/>
+                  <Column Name="vST" DataType="System.Decimal"/>
+                  <Column Name="vProd" DataType="System.Decimal"/>
+                  <Column Name="vNF" DataType="System.Decimal"/>
+                  <Column Name="nCFOP" DataType="System.Int32"/>
+                  <Column Name="nPeso" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                  <Column Name="nPesoSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+                  <Column Name="PIN" DataType="System.String"/>
+                  <Column Name="dPrev" DataType="System.Nullable`1[[System.DateTime, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                  <Column Name="ProxyddPrev" DataType="System.String"/>
+                </BusinessObjectDataSource>
+                <BusinessObjectDataSource Name="infNFe" DataType="null" Enabled="true">
+                  <Column Name="chave" DataType="System.String"/>
+                  <Column Name="PIN" DataType="System.String"/>
+                  <Column Name="dPrev" DataType="System.Nullable`1[[System.DateTime, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                  <Column Name="ProxyddPrev" DataType="System.String"/>
+                </BusinessObjectDataSource>
+                <BusinessObjectDataSource Name="infOutros" DataType="null" Enabled="true">
+                  <Column Name="tpDoc" DataType="null"/>
+                  <Column Name="descOutros" DataType="System.String"/>
+                  <Column Name="nDoc" DataType="System.String"/>
+                  <Column Name="dEmi" DataType="System.Nullable`1[[System.DateTime, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                  <Column Name="ProxyddEmi" DataType="System.String"/>
+                  <Column Name="vDocFisc" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                  <Column Name="vDocFiscSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+                  <Column Name="dPrev" DataType="System.Nullable`1[[System.DateTime, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                  <Column Name="ProxyddPrev" DataType="System.String"/>
+                </BusinessObjectDataSource>
+                <Column Name="nCont" DataType="System.String"/>
+                <Column Name="dPrev" DataType="System.String"/>
+              </Column>
+              <Column Name="docAnt" DataType="null"/>
+              <Column Name="vCargaSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+              <Column Name="vCargaAverbSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+            </Column>
+            <Column Name="infDoc" DataType="null">
+              <BusinessObjectDataSource Name="infNF1" Alias="infNF" DataType="null" PropName="infNF" Enabled="true">
+                <Column Name="nRoma" DataType="System.String"/>
+                <Column Name="nPed" DataType="System.String"/>
+                <Column Name="mod" DataType="null"/>
+                <Column Name="serie" DataType="System.String"/>
+                <Column Name="nDoc" DataType="System.String"/>
+                <Column Name="dEmi" DataType="System.DateTime"/>
+                <Column Name="ProxyddEmi" DataType="System.String"/>
+                <Column Name="vBC" DataType="System.Decimal"/>
+                <Column Name="vICMS" DataType="System.Decimal"/>
+                <Column Name="vBCST" DataType="System.Decimal"/>
+                <Column Name="vST" DataType="System.Decimal"/>
+                <Column Name="vProd" DataType="System.Decimal"/>
+                <Column Name="vNF" DataType="System.Decimal"/>
+                <Column Name="nCFOP" DataType="System.Int32"/>
+                <Column Name="nPeso" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                <Column Name="nPesoSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+                <Column Name="PIN" DataType="System.String"/>
+                <Column Name="dPrev" DataType="System.Nullable`1[[System.DateTime, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                <Column Name="ProxyddPrev" DataType="System.String"/>
+              </BusinessObjectDataSource>
+              <BusinessObjectDataSource Name="infNFe1" Alias="infNFe" DataType="null" PropName="infNFe" Enabled="true">
+                <Column Name="chave" DataType="System.String"/>
+                <Column Name="PIN" DataType="System.String"/>
+                <Column Name="dPrev" DataType="System.Nullable`1[[System.DateTime, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                <Column Name="ProxyddPrev" DataType="System.String"/>
+              </BusinessObjectDataSource>
+              <BusinessObjectDataSource Name="infOutros1" Alias="infOutros" DataType="null" PropName="infOutros" Enabled="true">
+                <Column Name="tpDoc" DataType="null"/>
+                <Column Name="descOutros" DataType="System.String"/>
+                <Column Name="nDoc" DataType="System.String"/>
+                <Column Name="dEmi" DataType="System.Nullable`1[[System.DateTime, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                <Column Name="ProxyddEmi" DataType="System.String"/>
+                <Column Name="vDocFisc" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                <Column Name="vDocFiscSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+                <Column Name="dPrev" DataType="System.Nullable`1[[System.DateTime, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                <Column Name="ProxyddPrev" DataType="System.String"/>
+              </BusinessObjectDataSource>
+              <Column Name="nCont" DataType="System.String"/>
+              <Column Name="dPrev" DataType="System.String"/>
+            </Column>
+            <Column Name="docAnt" DataType="null"/>
+            <BusinessObjectDataSource Name="seg" DataType="null" Enabled="true">
+              <Column Name="respSeg" DataType="null"/>
+              <Column Name="xSeg" DataType="System.String"/>
+              <Column Name="nApol" DataType="System.String"/>
+              <Column Name="nAver" DataType="System.String"/>
+              <Column Name="vCarga" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="vCargaSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+            </BusinessObjectDataSource>
+            <Column Name="infModal" DataType="null">
+              <Column Name="versaoModal" DataType="null"/>
+              <Column Name="ContainerModal" DataType="null">
+                <Column Name="COTM" DataType="System.String"/>
+                <Column Name="indNegociavel" DataType="null"/>
+                <Column Name="seg" Enabled="false" DataType="null"/>
+              </Column>
+            </Column>
+            <BusinessObjectDataSource Name="peri" DataType="null" Enabled="true">
+              <Column Name="nONU" DataType="System.String"/>
+              <Column Name="xNomeAE" DataType="System.String"/>
+              <Column Name="xClaRisco" DataType="System.String"/>
+              <Column Name="grEmb" DataType="System.String"/>
+              <Column Name="qTotProd" DataType="System.String"/>
+              <Column Name="qVolTipo" DataType="System.String"/>
+              <Column Name="pontoFulgor" DataType="System.String"/>
+            </BusinessObjectDataSource>
+            <BusinessObjectDataSource Name="veicNovos" DataType="null" Enabled="true">
+              <Column Name="chassi" DataType="System.String"/>
+              <Column Name="cCor" DataType="System.String"/>
+              <Column Name="xCor" DataType="System.String"/>
+              <Column Name="cMod" DataType="System.String"/>
+              <Column Name="vUnit" DataType="System.Decimal"/>
+              <Column Name="vFrete" DataType="System.Decimal"/>
+            </BusinessObjectDataSource>
+            <Column Name="cobr" DataType="null">
+              <Column Name="fat" DataType="null">
+                <Column Name="nFat" DataType="System.String"/>
+                <Column Name="vOrig" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                <Column Name="vDesc" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                <Column Name="vLiq" DataType="System.Nullable`1[[System.Decimal, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                <Column Name="vOrigSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+                <Column Name="vDescSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+                <Column Name="vLiqSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+              </Column>
+            </Column>
+            <Column Name="infCteSub" DataType="null">
+              <Column Name="chCte" DataType="System.String"/>
+              <Column Name="refCteAnu" DataType="System.String"/>
+              <Column Name="tomaICMS" DataType="null">
+                <Column Name="refNFe" DataType="System.String"/>
+                <Column Name="refNF" DataType="null">
+                  <Column Name="CNPJ" DataType="System.String"/>
+                  <Column Name="CPF" DataType="System.String"/>
+                  <Column Name="mod" DataType="System.String"/>
+                  <Column Name="serie" DataType="System.Int16"/>
+                  <Column Name="subserie" DataType="System.Nullable`1[[System.Int16, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+                  <Column Name="subserieSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+                  <Column Name="nro" DataType="System.Int32"/>
+                  <Column Name="valor" DataType="System.Decimal"/>
+                  <Column Name="dEmi" DataType="System.DateTime"/>
+                  <Column Name="ProxydEmi" DataType="System.String"/>
+                </Column>
+                <Column Name="refCte" DataType="System.String"/>
+              </Column>
+              <Column Name="indAlteraToma" DataType="System.Nullable`1[[System.Byte, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+              <Column Name="indAlteraTomaSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+              <Column Name="tomaNaoICMS" DataType="null">
+                <Column Name="refCteAnu" DataType="System.String"/>
+              </Column>
+            </Column>
+            <Column Name="infGlobalizado" DataType="null">
+              <Column Name="xObs" DataType="System.String"/>
+            </Column>
+            <Column Name="infServVinc" DataType="null">
+              <BusinessObjectDataSource Name="infCTeMultimodal" DataType="null" Enabled="true">
+                <Column Name="chCTeMultimodal" DataType="System.String"/>
+              </BusinessObjectDataSource>
+            </Column>
+          </Column>
+          <Column Name="infCteComp" DataType="null">
+            <Column Name="chave" DataType="System.String"/>
+            <Column Name="chCTe" DataType="System.String"/>
+          </Column>
+          <Column Name="infCteAnu" DataType="null">
+            <Column Name="chCte" DataType="System.String"/>
+            <Column Name="dEmi" DataType="System.DateTime"/>
+            <Column Name="ProxydEmi" DataType="System.String"/>
+          </Column>
+          <BusinessObjectDataSource Name="autXML" DataType="null" Enabled="true">
+            <Column Name="CNPJ" DataType="System.String"/>
+            <Column Name="CPF" DataType="System.String"/>
+          </BusinessObjectDataSource>
+          <Column Name="infRespTec" DataType="null">
+            <Column Name="CNPJ" DataType="System.String"/>
+            <Column Name="xContato" DataType="System.String"/>
+            <Column Name="email" DataType="System.String"/>
+            <Column Name="fone" DataType="System.String"/>
+            <Column Name="idCSRT" DataType="System.Nullable`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"/>
+            <Column Name="idCSRTSpecified" DataType="System.Boolean" BindableControl="CheckBox"/>
+            <Column Name="ProxyidCSRT" DataType="System.String"/>
+            <Column Name="hashCSRT" DataType="System.String"/>
+          </Column>
+        </Column>
+        <Column Name="infCTeSupl" DataType="null">
+          <Column Name="qrCodCTe" DataType="System.String"/>
+        </Column>
+        <Column Name="Signature" DataType="null">
+          <Column Name="SignedInfo" DataType="null">
+            <Column Name="CanonicalizationMethod" DataType="null">
+              <Column Name="Algorithm" DataType="System.String"/>
+            </Column>
+            <Column Name="SignatureMethod" DataType="null">
+              <Column Name="Algorithm" DataType="System.String"/>
+            </Column>
+            <Column Name="Reference" DataType="null">
+              <Column Name="URI" DataType="System.String"/>
+              <BusinessObjectDataSource Name="Transforms" DataType="null" Enabled="true">
+                <Column Name="Algorithm" DataType="System.String"/>
+              </BusinessObjectDataSource>
+              <Column Name="DigestMethod" DataType="null">
+                <Column Name="Algorithm" DataType="System.String"/>
+              </Column>
+              <Column Name="DigestValue" DataType="System.String"/>
+            </Column>
+          </Column>
+          <Column Name="SignatureValue" DataType="System.String"/>
+          <Column Name="KeyInfo" DataType="null">
+            <Column Name="X509Data" DataType="null">
+              <Column Name="X509Certificate" DataType="System.String"/>
+            </Column>
+          </Column>
+        </Column>
+      </Column>
+      <Column Name="protCTe" DataType="null">
+        <Column Name="versao" DataType="null"/>
+        <Column Name="infProt" DataType="null">
+          <Column Name="Id" DataType="System.String"/>
+          <Column Name="tpAmb" DataType="null"/>
+          <Column Name="verAplic" DataType="System.String"/>
+          <Column Name="chCTe" DataType="System.String"/>
+          <Column Name="dhRecbto" DataType="System.DateTimeOffset"/>
+          <Column Name="ProxydhRecbto" DataType="System.String"/>
+          <Column Name="nProt" DataType="System.String"/>
+          <Column Name="digVal" DataType="System.String"/>
+          <Column Name="cStat" DataType="System.Int32"/>
+          <Column Name="xMotivo" DataType="System.String"/>
+          <Column Name="Signature" DataType="null">
+            <Column Name="SignedInfo" DataType="null">
+              <Column Name="CanonicalizationMethod" DataType="null">
+                <Column Name="Algorithm" DataType="System.String"/>
+              </Column>
+              <Column Name="SignatureMethod" DataType="null">
+                <Column Name="Algorithm" DataType="System.String"/>
+              </Column>
+              <Column Name="Reference" DataType="null">
+                <Column Name="URI" DataType="System.String"/>
+                <BusinessObjectDataSource Name="Transforms1" Alias="Transforms" DataType="null" PropName="Transforms" Enabled="true">
+                  <Column Name="Algorithm" DataType="System.String"/>
+                </BusinessObjectDataSource>
+                <Column Name="DigestMethod" DataType="null">
+                  <Column Name="Algorithm" DataType="System.String"/>
+                </Column>
+                <Column Name="DigestValue" DataType="System.String"/>
+              </Column>
+            </Column>
+            <Column Name="SignatureValue" DataType="System.String"/>
+            <Column Name="KeyInfo" DataType="null">
+              <Column Name="X509Data" DataType="null">
+                <Column Name="X509Certificate" DataType="System.String"/>
+              </Column>
+            </Column>
+          </Column>
+        </Column>
+      </Column>
+    </BusinessObjectDataSource>
+    <Parameter Name="DoocumentoCancelado" DataType="System.Boolean"/>
+    <Parameter Name="Desenvolvedor" DataType="System.String"/>
+    <Parameter Name="QuebrarLinhasObservacao" DataType="System.Boolean"/>
+  </Dictionary>
+  <ReportPage Name="Page1" RawPaperSize="9" LeftMargin="8" TopMargin="6" RightMargin="7" BottomMargin="6" FirstPageSource="261" OtherPagesSource="261" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="737.1" Height="567" Border.Lines="All" Fill.Color="White" BeforePrintEvent="PageHeader1_BeforePrint" Guides="387.45">
+      <BarcodeObject Name="Barcode1" Left="601.58" Top="131.97" Width="133.96" Height="118.51" AutoSize="false" Text="[cteProc.CTe.infCTeSupl.qrCodCTe]" ShowText="false" AllowExpressions="true" Barcode="QR Code" Barcode.ErrorCorrection="L" Barcode.Encoding="UTF8" Barcode.QuietZone="true"/>
+      <TextObject Name="Text24" Left="405.46" Top="92.95" Width="112.06" Height="16.45" Fill.Color="224, 224, 224" Text="MODAL&#13;&#10;" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 8pt, style=Bold"/>
+      <TextObject Name="Text1" Top="2" Width="736.1" Height="10.9" Fill.Color="224, 224, 224" Text="DECLARO QUE RECEBI OS VOLUMES DESTE CONHECIMENTO EM PERFEITO ESTADO PELO QUE DOU POR CUMPRIDO O PRESENTE CONTRATO DE TRANSPORTE" HorzAlign="Center" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text2" Left="-0.55" Top="14.9" Width="198.45" Height="12.45" Text="Nome:" Font="Times New Roman, 6.75pt"/>
+      <LineObject Name="Line4" Top="78.6" Width="737.1" Border.Style="Dot"/>
+      <TextObject Name="Text4" Left="210.35" Top="61.7" Width="269.6" Height="12.45" Text="ASSINATURA / CARIMBO" HorzAlign="Center" Font="Times New Roman, 6.75pt"/>
+      <TextObject Name="Text5" Left="483.95" Top="25.35" Width="101.5" Height="14.45" Text="__/__/____    __:__" Font="Arial Narrow, 9pt"/>
+      <TextObject Name="Text6" Left="483.4" Top="14.9" Width="101.95" Height="9.45" Fill.Color="224, 224, 224" Text="CHEGADA DATA/HORA" HorzAlign="Center" Font="Times New Roman, 5.25pt"/>
+      <TextObject Name="Text7" Left="483.5" Top="50.7" Width="101.5" Height="14.45" Text="__/__/____    __:__" Font="Arial Narrow, 9pt"/>
+      <TextObject Name="Text8" Left="482.95" Top="43.25" Width="101.95" Height="9.45" Fill.Color="224, 224, 224" Text="SAÍDA DATA/HORA" HorzAlign="Center" Font="Times New Roman, 5.25pt"/>
+      <TextObject Name="Text9" Left="578.45" Top="15.12" Width="157.09" Height="13.45" Fill.Color="224, 224, 224" Text="CT-e" HorzAlign="Center" Font="Times New Roman, 9pt, style=Bold"/>
+      <TextObject Name="Text10" Left="585.9" Top="32.35" Width="18.9" Height="12.45" Text="Nº" Font="Times New Roman, 6.75pt"/>
+      <TextObject Name="Text11" Left="606.8" Top="31.35" Width="170.1" Height="14.9" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.ide.nCT]" Format="Custom" Format.Format="000,000,000" Font="Times New Roman, 9.75pt, style=Bold"/>
+      <TextObject Name="Text12" Left="586.9" Top="50.25" Width="37.8" Height="12.45" Text="SÉRIE:" Font="Times New Roman, 6.75pt"/>
+      <TextObject Name="Text13" Left="587.92" Top="58.7" Width="163.65" Height="13.9" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.ide.serie]" Format="Custom" Format.Format="000" Font="Times New Roman, 9.75pt, style=Bold"/>
+      <TextObject Name="Text14" Left="2" Top="157.65" Width="275.05" Height="9.45" Text="TIPO DO CT-E" Font="Times New Roman, 5pt"/>
+      <TextObject Name="Text18" Left="96.5" Top="84.05" Width="177.55" Height="16.9" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.emit.xNome]" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 9pt, style=Bold"/>
+      <TextObject Name="Text19" Left="87.05" Top="100.95" Width="187.44" Height="49.25" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.emit.enderEmit.xLgr], [cteProc.CTe.infCte.emit.enderEmit.nro] [cteProc.CTe.infCte.emit.enderEmit.xCpl]&#13;&#10;[cteProc.CTe.infCte.emit.enderEmit.xBairro]&#13;&#10;CEP: [FormatarCampo([cteProc.CTe.infCte.emit.enderEmit.CEP] ,'c')] - [cteProc.CTe.infCte.emit.enderEmit.xMun] - [cteProc.CTe.infCte.emit.enderEmit.ProxyUF]&#13;&#10;CNPJ: [FormatarCampo([cteProc.CTe.infCte.emit.CNPJ],'d')]&#13;&#10;INSCRIÇÃO ESTADUAL: [cteProc.CTe.infCte.emit.IE]&#13;&#10;TELEFONE: [FormatarCampo([cteProc.CTe.infCte.emit.enderEmit.fone],'f')]" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 6.75pt"/>
+      <PictureObject Name="poEmitLogo" Left="2" Top="82.05" Width="92.38" Height="68.37" Fill.Color="224, 224, 224" Image=""/>
+      <BarcodeObject Name="BarcodeChave" Left="290.61" Top="154.65" Width="299.97" Height="27.35" AutoSize="false" Text="[Substring( [cteProc.CTe.infCte.Id], 3)]" ShowText="false" AllowExpressions="true" Barcode="Code128" Barcode.AutoEncode="true"/>
+      <TextObject Name="txtChaveMDFe" Left="285.15" Top="204.9" Width="306.96" Height="15.35" Fill.Color="224, 224, 224" BeforePrintEvent="txtChaveMDFe_BeforePrint" Text="[FormatarChave([cteProc.CTe.infCte.Id])]" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 5pt, style=Bold"/>
+      <TextObject Name="Text20" Left="286.95" Top="224.8" Width="275.16" Height="16.9" Fill.Color="White" Text="Consulta em http://www.cte.fazenda.gov.br/portal" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 7pt, style=Bold"/>
+      <TextObject Name="Text21" Left="286.5" Top="187.45" Width="152.2" Height="9.45" Text="CHAVE DE ACESSO" Font="Times New Roman, 5pt"/>
+      <TextObject Name="Text22" Left="268.05" Top="93.5" Width="133.96" Height="11.45" Text="DACTE" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 8pt, style=Bold"/>
+      <TextObject Name="Text23" Left="267.6" Top="96.95" Width="134.85" Height="30.35" Text="Documento Auxiliar do Conhecimento de Transporte Eletrônico" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 5pt, style=Bold"/>
+      <TextObject Name="Text25" Left="285.95" Top="243.15" Width="152.2" Height="9.45" Text="PROTOCOLO DE AUTORIZAÇÃO DE USO" Font="Times New Roman, 5pt"/>
+      <TextObject Name="Text26" Left="285.17" Top="252.15" Width="306.18" Height="11.9" Fill.Color="224, 224, 224" Text="[cteProc.protCTe.infProt.nProt]  -  [FormatDateTime([cteProc.protCTe.infProt.dhRecbto].DateTime,&quot;dd/MM/yyyy HH:mm:ss&quot;)]" Font="Times New Roman, 8.25pt, style=Bold"/>
+      <TextObject Name="Text33" Left="523.75" Top="92.5" Width="35.91" Height="7.45" Text="FL" HorzAlign="Center" Font="Times New Roman, 5.25pt"/>
+      <TextObject Name="Text34" Left="524.95" Top="99.88" Width="53.15" Height="22.35" Fill.Color="224, 224, 224" Text="[Page#]/[TotalPages#]" HorzAlign="Center" Font="Times New Roman, 8.25pt, style=Bold"/>
+      <TextObject Name="Text35" Left="-9450" Top="-9450" Width="35.8" Height="7.45" Text="FOLHA" HorzAlign="Center" Font="Times New Roman, 5.25pt"/>
+      <TextObject Name="Text36" Left="-9448.8" Top="-9442.62" Width="34.25" Height="12.9" Text="01/01" HorzAlign="Center" Font="Times New Roman, 8.25pt, style=Bold"/>
+      <TextObject Name="Text37" Left="439.81" Top="130.3" Width="102.73" Height="7.45" Fill.Color="White" Text="DATA E HORA DE EMISSÃO" HorzAlign="Center" Font="Times New Roman, 5.25pt"/>
+      <TextObject Name="Text38" Left="440.01" Top="137.68" Width="103.18" Height="12.9" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.ide.dhEmi]" Format="Date" Format.Format="dd/MM/yyyy HH:mm:ss" HorzAlign="Center" Font="Times New Roman, 8.25pt, style=Bold"/>
+      <TextObject Name="Text39" Left="536.65" Top="130.3" Width="84.83" Height="7.45" Text="INSC. SUF. DEST" HorzAlign="Center" Font="Times New Roman, 5.25pt"/>
+      <TextObject Name="Text40" Left="405.35" Top="109.16" Width="112.52" Height="22.35" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.dest.ISUF]" Format="Date" Format.Format="dd/MM/yyyy HH:mm:ss" HorzAlign="Center" Font="Times New Roman, 5pt, style=Bold"/>
+      <TextObject Name="Text41" Left="1.45" Top="167.1" Width="277.05" Height="14.45" Fill.Color="224, 224, 224" Text="NORMAL" Font="Times New Roman, 5pt"/>
+      <TextObject Name="Text42" Left="-3" Top="204.79" Width="277.05" Height="14.45" Fill.Color="224, 224, 224" Text="NORMAL" Font="Times New Roman, 5pt"/>
+      <TextObject Name="Text45" Left="1.45" Top="244.15" Width="133.3" Height="9.45" Text="CFOP - NATUREZA DA OPERAÇÃO" Font="Times New Roman, 5pt"/>
+      <TextObject Name="Text46" Left="1" Top="252.15" Width="280.05" Height="13.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.ide.CFOP] - [cteProc.CTe.infCte.ide.natOp]" Font="Times New Roman, 5pt"/>
+      <LineObject Name="Line23" Left="368.55" Top="295.4" Height="202.9"/>
+      <LineObject Name="Line24" Left="1.13" Top="291.84" Width="735.1"/>
+      <LineObject Name="Line25" Left="1.13" Top="389.45" Width="735.1"/>
+      <TextObject Name="Text47" Left="1.45" Top="268.05" Width="133.3" Height="8.45" Text="INÍCIO DA PRESTAÇÃO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text48" Left="370.55" Top="268.05" Width="133.3" Height="8.45" Text="DESTINO DA PRESTAÇÃO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text49" Left="1.9" Top="277.5" Width="365.1" Height="13.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.ide.xMunIni] - [cteProc.CTe.infCte.ide.ProxyUFIni] - [cteProc.CTe.infCte.ide.cMunIni]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text50" Left="370.55" Top="277.5" Width="365.1" Height="13.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.ide.xMunFim] - [cteProc.CTe.infCte.ide.ProxyUFFim] - [cteProc.CTe.infCte.ide.cMunFim]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text51" Left="2" Top="296.4" Width="49.7" Height="8.45" Text="REMETENTE" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text52" Left="2" Top="316.3" Width="59.15" Height="8.45" Text="ENDEREÇO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text53" Left="2" Top="339.2" Width="59.15" Height="8.45" Text="MUNICÍPIO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text54" Left="255.7" Top="339.2" Width="29.8" Height="8.45" Text="CEP" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text55" Left="2" Top="359.1" Width="49.7" Height="8.45" Text="CNPJ/CPF" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text56" Left="255.7" Top="359.1" Width="94.95" Height="8.45" Text="IE" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text57" Left="2" Top="379" Width="49.7" Height="8.45" Text="PAÍS" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text58" Left="199" Top="379" Width="30.8" Height="8.45" Text="FONE" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text59" Left="51.25" Top="294.4" Width="316.75" Height="10.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.rem.xNome]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text60" Left="51.25" Top="314.3" Width="315.75" Height="12.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.rem.enderReme.xLgr], [cteProc.CTe.infCte.rem.enderReme.nro] [cteProc.CTe.infCte.rem.enderReme.xCpl] - [cteProc.CTe.infCte.rem.enderReme.xBairro]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text61" Left="51.25" Top="337.2" Width="198.9" Height="10.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.rem.enderReme.xMun] - [cteProc.CTe.infCte.rem.enderReme.ProxyUF]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text62" Left="51.25" Top="357.1" Width="195.45" Height="10.45" Fill.Color="224, 224, 224" Text="[FormatarCampo([cteProc.CTe.infCte.rem.CNPJ],'d')]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text63" Left="51.25" Top="377" Width="148.2" Height="10.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.rem.enderReme.xPais] - [cteProc.CTe.infCte.rem.enderReme.cPais]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text64" Left="274.05" Top="337.2" Width="93.5" Height="10.45" Fill.Color="224, 224, 224" Text="[FormatarCampo([cteProc.CTe.infCte.rem.enderReme.CEP],'c')]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text65" Left="273.15" Top="357.1" Width="84.5" Height="10.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.rem.IE]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text66" Left="222.35" Top="377" Width="145.2" Height="10.45" Fill.Color="224, 224, 224" Text="[FormatarCampo([cteProc.CTe.infCte.rem.fone],'f')]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text67" Left="370.55" Top="296.4" Width="68.6" Height="8.45" Text="DESTINATÁRIO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text68" Left="370.55" Top="316.3" Width="59.15" Height="8.45" Text="ENDEREÇO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text69" Left="370.55" Top="339.2" Width="59.15" Height="8.45" Text="MUNICÍPIO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text70" Left="614.8" Top="339.2" Width="29.8" Height="8.45" Text="CEP" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text71" Left="370.55" Top="359.1" Width="49.7" Height="8.45" Text="CNPJ/CPF" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text72" Left="633.7" Top="359.1" Width="19.35" Height="8.45" Text="IE" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text73" Left="370.55" Top="379" Width="49.7" Height="8.45" Text="PAÍS" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text74" Left="567.55" Top="379" Width="30.8" Height="8.45" Text="FONE" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text75" Left="440.7" Top="294.4" Width="316.75" Height="10.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.dest.xNome]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text76" Left="420.8" Top="314.3" Width="315.75" Height="21.9" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.dest.enderDest.xLgr], [cteProc.CTe.infCte.dest.enderDest.nro] [cteProc.CTe.infCte.dest.enderDest.xCpl] - [cteProc.CTe.infCte.dest.enderDest.xBairro]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text77" Left="421.8" Top="337.2" Width="193.45" Height="10.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.dest.enderDest.xMun] - [cteProc.CTe.infCte.dest.enderDest.ProxyUF]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text78" Left="421.8" Top="357.1" Width="205.9" Height="10.45" Fill.Color="224, 224, 224" Text="[FormatarCampo([cteProc.CTe.infCte.dest.CNPJ],'d')]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text79" Left="421.8" Top="377" Width="149.2" Height="10.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.dest.enderDest.xPais] - [cteProc.CTe.infCte.dest.enderDest.cPais]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text80" Left="642.6" Top="337.2" Width="93.5" Height="10.45" Fill.Color="224, 224, 224" Text="[FormatarCampo([cteProc.CTe.infCte.dest.enderDest.CEP],'c')]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text81" Left="650.15" Top="357.1" Width="85.5" Height="10.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.dest.IE]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text82" Left="600.35" Top="377" Width="145.2" Height="10.45" Fill.Color="224, 224, 224" Text="[FormatarCampo([cteProc.CTe.infCte.dest.fone],'f')]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text83" Left="2" Top="393.9" Width="49.7" Height="8.45" Text="EXPEDIDOR" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text84" Left="2" Top="416.8" Width="59.15" Height="8.45" Text="ENDEREÇO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text85" Left="2" Top="446.15" Width="59.15" Height="8.45" Text="MUNICÍPIO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text86" Left="246.25" Top="445.15" Width="29.8" Height="10.45" Text="CEP" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text87" Left="2" Top="466.05" Width="49.7" Height="8.45" Fill.Color="White" Text="CNPJ/CPF" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text88" Left="246.25" Top="466.05" Width="19.35" Height="8.45" Text="IE" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text89" Left="2" Top="485.95" Width="49.7" Height="8.45" Text="PAÍS" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text90" Left="236.8" Top="485.95" Width="30.8" Height="8.45" Text="FONE" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text91" Left="51.25" Top="391.9" Width="316.75" Height="10.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.exped.xNome]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text92" Left="51.25" Top="415.8" Width="315.75" Height="21.9" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.exped.enderExped.xLgr], [cteProc.CTe.infCte.exped.enderExped.nro] [cteProc.CTe.infCte.exped.enderExped.xCpl] - [cteProc.CTe.infCte.exped.enderExped.xBairro]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text93" Left="51.25" Top="445.15" Width="189.45" Height="10.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.exped.enderExped.xMun] - [cteProc.CTe.infCte.exped.enderExped.ProxyUF]" Font="Times New Roman, 8.25pt"/>
+      <TextObject Name="Text94" Left="51.25" Top="464.05" Width="186" Height="10.45" Fill.Color="224, 224, 224" Text="[FormatarCampo([cteProc.CTe.infCte.exped.CNPJ],'d')]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text95" Left="51.25" Top="483.95" Width="176.55" Height="10.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.exped.enderExped.xPais] - [cteProc.CTe.infCte.exped.enderExped.cPais]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text96" Left="274.05" Top="444.15" Width="93.5" Height="10.45" Fill.Color="224, 224, 224" Text="[FormatarCampo([cteProc.CTe.infCte.exped.enderExped.CEP],'c')]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text97" Left="273.15" Top="464.05" Width="93.95" Height="10.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.exped.IE]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text98" Left="269.6" Top="483.95" Width="97.95" Height="10.45" Fill.Color="224, 224, 224" Text="[FormatarCampo([cteProc.CTe.infCte.exped.fone],'f')]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text99" Left="370.55" Top="393.9" Width="59.15" Height="8.45" Text="RECEBEDOR" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text100" Left="370.55" Top="413.8" Width="59.15" Height="8.45" Text="ENDEREÇO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text101" Left="370.55" Top="446.15" Width="59.15" Height="8.45" Text="MUNICÍPIO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text102" Left="370.55" Top="466.05" Width="49.7" Height="8.45" Text="CNPJ/CPF" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text103" Left="624.25" Top="466.05" Width="19.35" Height="8.45" Text="IE&#13;&#10;" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text104" Left="370.55" Top="485.95" Width="49.7" Height="8.45" Text="PAÍS" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text105" Left="624.25" Top="485.95" Width="30.8" Height="8.45" Text="FONE" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text106" Left="431.25" Top="391.9" Width="316.75" Height="10.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.receb.xNome]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text107" Left="430.25" Top="411.8" Width="315.75" Height="21.9" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.receb.enderReceb.xLgr], [cteProc.CTe.infCte.receb.enderReceb.nro] [cteProc.CTe.infCte.receb.enderReceb.xCpl] - [cteProc.CTe.infCte.receb.enderReceb.xBairro]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text108" Left="421.8" Top="444.15" Width="193.45" Height="10.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.receb.enderReceb.xMun] - [cteProc.CTe.infCte.receb.enderReceb.ProxyUF]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text109" Left="421.8" Top="464.05" Width="196.45" Height="10.45" Fill.Color="224, 224, 224" Text="[FormatarCampo([cteProc.CTe.infCte.receb.CNPJ],'d')]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text110" Left="421.8" Top="483.95" Width="149.2" Height="10.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.receb.enderReceb.xPais] - [cteProc.CTe.infCte.receb.enderReceb.cPais]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text111" Left="657.05" Top="483.95" Width="164.1" Height="10.45" Fill.Color="224, 224, 224" Text="[FormatarCampo([cteProc.CTe.infCte.receb.fone],'f')]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text112" Left="650.25" Top="464.12" Width="85.5" Height="10.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.receb.IE]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text129" Left="614.63" Top="445.98" Width="29.8" Height="8.45" Text="CEP" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text130" Left="643.5" Top="444.09" Width="91.5" Height="10.45" Fill.Color="224, 224, 224" Text="[FormatarCampo([cteProc.CTe.infCte.receb.enderReceb.CEP],'c')]" Font="Times New Roman, 6pt"/>
+      <LineObject Name="Line38" Left="-9450" Top="-9450" Height="60.7"/>
+      <TextObject Name="Text155" Left="-9450" Top="-9450" Width="65.7" Height="8.45" Text="Litros" HorzAlign="Center" Font="Times New Roman, 5.25pt"/>
+      <TextObject Name="Text156" Left="-9449.45" Top="-9440.28" Width="64.7" Height="48.25" Text="1.450,000" HorzAlign="Right" Font="Times New Roman, 6pt, style=Bold"/>
+      <TextObject Name="Text212" Left="286.5" Top="130.3" Width="37.91" Height="7.45" Fill.Color="White" Text="MODELO" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 5.25pt"/>
+      <TextObject Name="Text213" Left="286.5" Top="137.75" Width="35.25" Height="12.9" Fill.Color="224, 224, 224" Text="57" HorzAlign="Center" Font="Times New Roman, 8.25pt, style=Bold"/>
+      <TextObject Name="Text214" Left="324.75" Top="130.3" Width="37.91" Height="7.45" Fill.Color="White" Text="SÉRIE" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 5.25pt"/>
+      <TextObject Name="Text215" Left="324.75" Top="137.75" Width="35.25" Height="12.9" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.ide.serie]" Format="Custom" Format.Format="000" HorzAlign="Center" Font="Times New Roman, 8.25pt, style=Bold"/>
+      <TextObject Name="Text216" Left="363.55" Top="130.3" Width="72.71" Height="7.45" Fill.Color="White" Text="NÚMERO" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 5.25pt"/>
+      <TextObject Name="Text217" Left="363.55" Top="137.75" Width="72.05" Height="12.9" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.ide.nCT]" Format="Custom" Format.Format="000,000,000" HorzAlign="Center" Font="Times New Roman, 8.25pt, style=Bold"/>
+      <TextObject Name="Text260" Top="28.35" Width="198.45" Height="18.9" Fill.Color="224, 224, 224" Font="Times New Roman, 6.75pt"/>
+      <TextObject Name="Text261" Left="207.9" Top="18.9" Width="269.6" Height="40.8" Fill.Color="224, 224, 224" HorzAlign="Center" Font="Times New Roman, 6.75pt"/>
+      <TextObject Name="Text262" Top="56.7" Width="198.45" Height="17.9" Fill.Color="224, 224, 224" Font="Times New Roman, 6.75pt"/>
+      <TextObject Name="Text263" Top="47.25" Width="198.45" Height="12.45" Text="RG:" Font="Times New Roman, 6.75pt"/>
+      <TextObject Name="Text264" Top="189" Width="275.05" Height="9.45" Text="TIPO DO SERVIÇO" Font="Times New Roman, 5pt"/>
+      <TextObject Name="Text265" Top="217.35" Width="275.05" Height="9.45" Text="INDICADOR CT-E GLOBALIZADO" Font="Times New Roman, 5pt"/>
+      <TextObject Name="Text268" Left="18.9" Top="226.8" Width="28.46" Height="7.45" Fill.Color="White" Text="SIM" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 5.25pt"/>
+      <TextObject Name="Text269" Left="75.6" Top="226.8" Width="28.46" Height="7.45" Fill.Color="White" Text="NÃO" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 5.25pt"/>
+      <TextObject Name="Text270" Left="132.3" Top="217.35" Width="122.96" Height="7.45" Fill.Color="White" Text="INF. DO CT-E GLOBALIZADO" HorzAlign="Center" WordWrap="false" Font="Times New Roman, 5.25pt"/>
+      <TextObject Name="Text271" Left="132.3" Top="226.8" Width="142.75" Height="18.9" Fill.Color="224, 224, 224" Font="Times New Roman, 5pt"/>
+      <LineObject Name="Line26" Top="498.85" Width="735.65"/>
+      <TextObject Name="Text113" Left="2" Top="503.3" Width="107.4" Height="8.45" Text="TOMADOR DO SERVIÇO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text116" Left="378" Top="503.3" Width="50.7" Height="8.45" Text="MUNICÍPIO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text117" Left="595.35" Top="503.3" Width="31.8" Height="8.45" Text="CEP" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text118" Left="107.4" Top="501.3" Width="259.15" Height="11.45" Fill.Color="224, 224, 224" Text="TOMADOR" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text119" Left="432.15" Top="501.3" Width="161.65" Height="11.45" Fill.Color="224, 224, 224" Text="MUNICÍPIO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text120" Left="626.15" Top="501.3" Width="109.95" Height="11.45" Fill.Color="224, 224, 224" Text="CEP" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text114" Left="2" Top="526.2" Width="60.15" Height="8.45" Text="ENDEREÇO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text115" Left="2" Top="549.1" Width="46.7" Height="8.45" Text="CNPJ/CPF" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text121" Left="69.15" Top="523.2" Width="502.85" Height="11.45" Fill.Color="224, 224, 224" Text="ENDEREÇO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text126" Left="56.7" Top="547.04" Width="200.94" Height="11.45" Fill.Color="224, 224, 224" Text="CNPJ" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text125" Left="274.05" Top="549.04" Width="18.35" Height="8.45" Text="IE" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text127" Left="301.4" Top="547.04" Width="182.04" Height="11.45" Fill.Color="224, 224, 224" Text="INSCRIÇÃO ESTADUAL" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text123" Left="618.7" Top="523.2" Width="155.2" Height="11.45" Fill.Color="224, 224, 224" Text="PAÍS" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text122" Left="584.9" Top="526.2" Width="31.8" Height="8.45" Text="PAÍS" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text128" Left="561.49" Top="547.04" Width="171.59" Height="11.45" Fill.Color="224, 224, 224" Text="FONE" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text124" Left="500.85" Top="549.04" Width="46.7" Height="8.45" Text="FONE" Font="Times New Roman, 6pt"/>
+      <LineObject Name="Line81" Top="567" Width="735.65"/>
+      <ShapeObject Name="Shape4" Top="226.25" Width="18.9" Height="10"/>
+      <ShapeObject Name="Shape15" Left="56.7" Top="226.8" Width="18.9" Height="10"/>
+    </PageHeaderBand>
+    <DataBand Name="dataBandCTeComplementoAnulacao" Top="571" Width="737.1" Height="454.05" Border.Color="Silver">
+      <TextObject Name="Text272" Width="256.15" Height="8.45" Text="PRODUTO PREDOMINANTE" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text132" Left="2" Top="9.9" Width="261.15" Height="13.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.infCTeNorm.infCarga.proPred]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text133" Left="276.5" Top="1.45" Width="242.25" Height="8.45" Text="OUTRAS CARACTERISTICAS DA CARGA" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text134" Left="276.05" Top="9.9" Width="242.25" Height="13.45" Fill.Color="224, 224, 224" Text="[cteProc.CTe.infCte.infCTeNorm.infCarga.xOutCat]" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text135" Left="530.65" Top="1.45" Width="242.25" Height="8.45" Text="VALOR TOTAL DA MERCADORIA" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text136" Left="530.2" Top="9.9" Width="204.45" Height="13.45" Fill.Color="224, 224, 224" Text="[FormatCurrency([cteProc.CTe.infCte.infCTeNorm.infCarga.vCarga],2)]" HorzAlign="Right" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text145" Left="482.95" Top="27.35" Width="66.7" Height="8.45" Text="CUBAGEM(M3)" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text146" Left="483.4" Top="39.25" Width="84.6" Height="16.9" Fill.Color="224, 224, 224" HorzAlign="Right" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text147" Left="51.25" Top="27.35" Width="84.6" Height="8.45" Text="PESO BRUTO (KG)" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text148" Left="50.7" Top="39.25" Width="130.85" Height="16.9" Fill.Color="224, 224, 224" HorzAlign="Right" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text149" Left="193.45" Top="27.35" Width="122.4" Height="8.45" Text="PESO BASE CÁLCULO (KG)" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text150" Left="194" Top="39.07" Width="140.3" Height="16.9" Fill.Color="224, 224, 224" HorzAlign="Right" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text151" Left="583.9" Top="27.35" Width="150.75" Height="8.45" Text="QUANTIDADE DE VOLUMES (UND)" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text152" Left="584.45" Top="39.07" Width="149.75" Height="16.9" Fill.Color="224, 224, 224" HorzAlign="Right" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text153" Left="349.65" Top="27.35" Width="94.05" Height="8.45" Text="PESO AFERIDO (KG)" HorzAlign="Center" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text154" Left="350.2" Top="39.07" Width="111.95" Height="16.9" Fill.Color="224, 224, 224" HorzAlign="Right" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text273" Top="28.35" Width="47.8" Height="8.45" Text="QNT." Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text274" Left="0.45" Top="40.25" Width="37.35" Height="16.9" Fill.Color="224, 224, 224" Text="CARGA" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text210" Left="1" Top="68.6" Width="735.1" Height="11.45" Fill.Color="224, 224, 224" Text="COMPONENTES DO VALOR DA PRESTAÇÃO DE SERVIÇO" HorzAlign="Center" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text199" Left="1.45" Top="81.83" Width="104.95" Height="8.9" Text="NOME" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text201" Left="143.75" Top="81.83" Width="95.5" Height="8.9" Text="VALOR" HorzAlign="Right" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text203" Left="1" Top="94.4" Width="238.25" Height="40.25" Fill.Color="224, 224, 224" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text200" Left="250.15" Top="81.83" Width="104.95" Height="8.9" Text="NOME" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text202" Left="376" Top="81.83" Width="104.95" Height="8.9" Text="VALOR" HorzAlign="Right" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text204" Left="252.15" Top="94.4" Width="228.8" Height="40.25" Fill.Color="224, 224, 224" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text169" Left="491.85" Top="80.5" Width="251.7" Height="8.45" Text="VALOR TOTAL DO SERVIÇO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text171" Left="492.4" Top="95.95" Width="242.25" Height="12.45" Fill.Color="224, 224, 224" Text="[FormatCurrency([cteProc.CTe.infCte.vPrest.vTPrest],2)]&#13;&#10;&#13;&#10;" HorzAlign="Right" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text170" Left="491.78" Top="112.12" Width="251.7" Height="8.45" Text="VALOR A RECEBER" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text172" Left="492.4" Top="121.3" Width="242.25" Height="13.45" Fill.Color="224, 224, 224" Text="[FormatCurrency([cteProc.CTe.infCte.vPrest.vRec],2)]" HorzAlign="Right" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text161" Left="1" Top="144.2" Width="735.1" Height="11.45" Fill.Color="224, 224, 224" Text="INFORMAÇÕES RELATIVAS AO IMPOSTO" HorzAlign="Center" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text187" Left="2" Top="158.1" Width="190" Height="8.45" Text="CLASSIFICAÇÃO TRIBUTÁRIA DO SERVIÇO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text188" Left="2" Top="171" Width="320.85" Height="14.45" Fill.Color="224, 224, 224" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text189" Left="338.2" Top="158.08" Width="91.05" Height="8.45" Text="BASE DE CÁLCULO" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text194" Left="338.2" Top="171" Width="90.6" Height="14.45" Fill.Color="224, 224, 224" Text="R$ 0,00" HorzAlign="Right" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text190" Left="443.15" Top="158.1" Width="92.05" Height="8.45" Text="ALÍQUOTA DO ICMS" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text195" Left="443.15" Top="171" Width="91.6" Height="14.45" Fill.Color="224, 224, 224" Text="0,00%" HorzAlign="Right" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text191" Left="548.1" Top="158.1" Width="93.05" Height="8.45" Text="VALOR DO ICMS" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text196" Left="549.1" Top="171" Width="90.6" Height="14.45" Fill.Color="224, 224, 224" Text="R$ 0,00" HorzAlign="Right" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text192" Left="653.05" Top="158.08" Width="77.15" Height="8.45" Text="% RED BC CALC" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text197" Left="652.05" Top="171" Width="78.15" Height="14.45" Fill.Color="224, 224, 224" Text="0,00%" HorzAlign="Right" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text162" Left="1" Top="191.45" Width="734.1" Height="11.45" Fill.Color="224, 224, 224" Text="DOCUMENTOS ORIGINÁRIO" HorzAlign="Center" Font="Times New Roman, 6.75pt"/>
+      <TextObject Name="Text198" Left="0.89" Top="203.35" Width="366.88" Height="9.45" Border.Lines="Left, Right" Text="TP DOC                    CPF/CNPJ EMITENTE                 SÉRIE/NRO. DOCUMENTO" Font="Microsoft Sans Serif, 6.75pt"/>
+      <TextObject Name="Text206" Left="368.55" Top="203.35" Width="366.88" Height="9.45" Border.Lines="Right" Text="TP DOC                    CPF/CNPJ EMITENTE                 SÉRIE/NRO. DOCUMENTO" Font="Microsoft Sans Serif, 6.75pt"/>
+      <TextObject Name="Text205" Left="368.55" Top="222.35" Width="366.88" Height="49.8" Border.Lines="Right, Bottom" Fill.Color="224, 224, 224" CanGrow="true" CanShrink="true" Text="NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0001&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0002&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0003&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0004&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0005&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0006&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0007&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0008&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0009&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0010" Padding="2, 4, 2, 0" Font="Arial Narrow, 6pt, style=Bold"/>
+      <TextObject Name="Text193" Left="0.89" Top="222.35" Width="366.88" Height="49.8" Border.Lines="Left, Right, Bottom" Fill.Color="224, 224, 224" CanGrow="true" CanShrink="true" Text="NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0001&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0002&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0003&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0004&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0005&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0006&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0007&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0008&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0009&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0010&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0001&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0002&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0003&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0004&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0005&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0006&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0007&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0008&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0009&#13;&#10;NF-e 000000000   0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0010" Padding="2, 4, 2, 0" Font="Arial Narrow, 6pt, style=Bold"/>
+      <TextObject Name="Text275" Top="274.05" Width="734.1" Height="11.45" Fill.Color="224, 224, 224" CanGrow="true" CanShrink="true" GrowToBottom="true" Text="PREVISÃO FLUXO DA CARGA" HorzAlign="Center" Font="Times New Roman, 6.75pt"/>
+      <TextObject Name="Text276" Top="292.95" Width="237.25" Height="8.45" Text="SIGLA OU CÓDIGO INT.DA FILIAL/PORTO/ESTAÇÃO/AEROPORTO DE ORIGEM" Font="Times New Roman, 4.55pt"/>
+      <TextObject Name="Text277" Left="245.7" Top="292.95" Width="246.7" Height="8.45" Text="SIGLA OU CÓDIGO INT.DA FILIAL/PORTO/ESTAÇÃO/AEROPORTO DE PASSAGEM" Font="Times New Roman, 4.55pt"/>
+      <TextObject Name="Text278" Left="500.85" Top="292.95" Width="265.6" Height="8.45" Text="SIGLA OU CÓDIGO INT.DA FILIAL/PORTO/ESTAÇÃO/AEROPORTO DE DESTINO" Font="Times New Roman, 4.55pt"/>
+      <TextObject Name="Text279" Top="302.4" Width="235.8" Height="14.45" Fill.Color="224, 224, 224" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text280" Left="245.7" Top="302.4" Width="245.25" Height="14.45" Fill.Color="224, 224, 224" Font="Times New Roman, 6pt"/>
+      <TextObject Name="Text281" Left="500.85" Top="302.4" Width="235.8" Height="14.45" Fill.Color="224, 224, 224" Font="Times New Roman, 6pt"/>
+      <ShapeObject Name="Shape9" Top="321.3" Width="737.1" Height="82.05" Border.Color="224, 224, 224" Border.Width="2" CanGrow="true" CanShrink="true" GrowToBottom="true"/>
+      <TextObject Name="Text163" Left="1" Top="322.85" Width="734.1" Height="11.45" Border.Color="Silver" Fill.Color="224, 224, 224" CanGrow="true" CanShrink="true" GrowToBottom="true" Text="OBSERVAÇÕES" HorzAlign="Center" Font="Times New Roman, 6.75pt"/>
+      <LineObject Name="Line45" Left="1" Top="334.3" Width="734.55" Border.Color="224, 224, 224" CanGrow="true" CanShrink="true" GrowToBottom="true"/>
+      <TextObject Name="Text168" Left="4" Top="336.75" Width="727.65" Height="65.15" CanGrow="true" CanShrink="true" GrowToBottom="true" Text="[cteProc.CTe.infCte.compl.xObs]" Font="Times New Roman, 8.25pt"/>
+      <TextObject Name="Text186" Left="-9.45" Top="348.2" Width="765.45" Height="18.9" CanGrow="true" CanShrink="true" GrowToBottom="true" Text="DOCUMENTO EMITIDO EM AMBIENTE DE HOMOLOGAÇÃO, SEM VALOR FISCAL" HorzAlign="Center" Font="Times New Roman, 12pt, style=Bold"/>
+      <TextObject Name="Text185" Top="366.55" Width="737.1" Height="24.35" CanGrow="true" CanShrink="true" GrowToBottom="true" Text="DOCUMENTO CANCELADO" HorzAlign="Center" Font="Times New Roman, 18pt, style=Bold"/>
+      <ShapeObject Name="Shape10" Top="406.8" Width="737.1" Height="47.25" Border.Color="224, 224, 224" Border.Width="1.5"/>
+      <TextObject Name="Text167" Left="1" Top="408.25" Width="735.1" Height="11.45" Fill.Color="224, 224, 224" Text="DADOS ESPECÍFICOS DO MODAL RODOVIÁRIO - CARGA FRACIONADA" HorzAlign="Center" Font="Times New Roman, 6.75pt"/>
+      <LineObject Name="Line48" Left="1" Top="420.7" Width="734.55" Border.Color="224, 224, 224"/>
+      <TextObject Name="Text160" Left="1.45" Top="422.7" Width="733.65" Height="28.35" Text="ESTE CONHECIMENTO DE TRANSPORTE ATENDE À LEGISLAÇÃO DE TRANSPORTE RODOVIÁRIO EM VIGOR" HorzAlign="Center" VertAlign="Center" Font="Times New Roman, 5.25pt"/>
+    </DataBand>
+    <PageFooterBand Name="dataBandFooter" Top="1029.05" Width="737.1" Height="57.7">
+      <ShapeObject Name="Shape11" Width="737.1" Height="56.7" Border.Color="224, 224, 224"/>
+      <LineObject Name="Line46" Left="1" Top="14.45" Width="734.55" Border.Color="224, 224, 224"/>
+      <TextObject Name="Text173" Left="1" Top="14.9" Width="94.5" Height="39.8" Font="Arial Narrow, 6.75pt"/>
+      <TextObject Name="Text207" Left="94.5" Top="14.74" Width="348.65" Height="39.8" Border.Color="224, 224, 224" Font="Arial Narrow, 6.75pt"/>
+      <TextObject Name="Text208" Left="445.15" Top="14.9" Width="94.5" Height="39.8" Font="Arial Narrow, 6.75pt"/>
+      <TextObject Name="Text209" Left="538.1" Top="14.9" Width="198.45" Height="39.8" Text="123456789012345678901234567890123456789012345" Font="Arial Narrow, 6.75pt"/>
+      <TextObject Name="Text165" Left="1" Top="2" Width="442.15" Height="11.45" Border.Color="192, 192, 192" Border.Width="1.5" Fill.Color="224, 224, 224" Text="USO EXCLUSIVO DO EMISSOR DO CTE" HorzAlign="Center" Font="Times New Roman, 6.75pt"/>
+      <LineObject Name="Line47" Left="444.15" Top="1" Height="54.7" Border.Color="224, 224, 224"/>
+      <TextObject Name="Text166" Left="444.15" Top="2" Width="290.95" Height="11.45" Border.Color="224, 224, 224" Fill.Color="224, 224, 224" Text="RESERVADO AO FISCO" HorzAlign="Center" Font="Times New Roman, 6.75pt"/>
+      <ChildBand Name="childDatabandFooter" Top="1090.75" Width="737.1" Height="11.9">
+        <TextObject Name="Text164" Left="311.85" Width="423.25" Height="11.45" Text="Desenvolvido por: [Desenvolvedor]" HorzAlign="Right" Font="Times New Roman, 6.75pt"/>
+      </ChildBand>
+    </PageFooterBand>
+  </ReportPage>
+</Report>

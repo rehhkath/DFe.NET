@@ -79,5 +79,11 @@ namespace Cte.Dacte.Fast.Standard.Properties {
                 return ((byte[])(obj));
             }
         }
+        internal static byte[] CTeRetratoPadrao {
+            get {
+                object obj = ResourceManager.GetObject("CTeRetratoPadrao", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
     }
 }
