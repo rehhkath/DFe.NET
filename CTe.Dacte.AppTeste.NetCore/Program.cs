@@ -41,7 +41,7 @@ namespace Cte.Dacte.AppTeste.NetCore
         private static async Task GerarDactePdf()
         {
 
-            string caminho = (@"C:\Users\renat\Documents\27220209005062000403570010000079911005601930-cte.xml"); //retirar
+            string caminho = (@"document.xml"); 
 
             //busca arquivo xml
             string xml = Funcoes.BuscarArquivoXml(caminho);
@@ -73,12 +73,12 @@ namespace Cte.Dacte.AppTeste.NetCore
                 }
                 #endregion
                 DacteFrCte dacte = new DacteFrCte(proc: cte, config: new ConfiguracaoDacte(){
-                    Logomarca = File.ReadAllBytes("C:\\Users\\renat\\Pictures\\file-20200309-118956-1cqvm6j.jpg"),
+                    Logomarca = File.ReadAllBytes(""),
                     DocumentoCancelado = false,
                     Desenvolvedor = "",
                     QuebrarLinhasObservacao = true,
                 },
-                arquivoRelatorio: "C:\\Users\\renat\\Desktop\\Repositories\\DFe.NET\\Cte.Dacte.Fast.Standard\\Resources\\CTeRetrato.frx");
+                arquivoRelatorio: "");
                 
                 return dacte;
             }

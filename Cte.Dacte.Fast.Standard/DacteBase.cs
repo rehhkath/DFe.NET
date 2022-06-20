@@ -1,7 +1,5 @@
 using System.IO;
 using FastReport;
-using FastReport.Export.Html;
-using FastReport.Export.Image;
 using FastReport.Export.PdfSimple;
 
 namespace Cte.Dacte.Fast.Standard
