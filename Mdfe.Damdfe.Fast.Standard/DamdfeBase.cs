@@ -13,6 +13,7 @@ namespace Mdfe.Damdfe.Fast.Standard
             {
                 try
                 {
+                    FastReport.Utils.Config.EnableScriptSecurity = false;
                     Relatorio.Prepare();
                     Relatorio.Export(new PDFSimpleExport(), stream);
                     return stream.ToArray();
