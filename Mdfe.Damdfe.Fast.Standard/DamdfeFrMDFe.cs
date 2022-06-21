@@ -44,7 +44,7 @@ namespace Mdfe.Damdfe.Fast.Standard
             {
                 try
                 {
-                    retrato = Properties.Resources.MDFeRetratoStandard;
+                    retrato = Properties.Resources.MDFeRetratoPadrao;
                 }
                 catch (Exception ex)
                 {

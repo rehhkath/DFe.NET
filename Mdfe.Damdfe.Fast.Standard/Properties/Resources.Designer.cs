@@ -69,5 +69,11 @@ namespace Mdfe.Damdfe.Fast.Standard.Properties {
                 return ((byte[])(obj));
             }
         }
+        internal static byte[] MDFeRetratoPadrao {
+            get {
+                object obj = ResourceManager.GetObject("MDFeRetratoPadrao", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
     }
 }
