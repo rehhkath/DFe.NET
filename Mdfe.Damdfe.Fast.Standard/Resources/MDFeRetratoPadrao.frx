@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Report ScriptLanguage="CSharp" ReferencedAssemblies="System.dll&#13;&#10;System.Drawing.dll&#13;&#10;System.Windows.Forms.dll&#13;&#10;System.Data.dll&#13;&#10;System.Xml.dll&#13;&#10;MDFe.Classes.dll&#13;&#10;DFe.Classes.dll&#13;&#10;MDFe.Utils.dll" ReportInfo.Created="01/12/2017 09:00:32" ReportInfo.Modified="06/20/2022 08:12:25" ReportInfo.CreatorVersion="2022.1.0.0">
+<Report ScriptLanguage="CSharp" ReferencedAssemblies="System.dll&#13;&#10;System.Drawing.dll&#13;&#10;System.Windows.Forms.dll&#13;&#10;System.Data.dll&#13;&#10;System.Xml.dll&#13;&#10;MDFe.Classes.dll&#13;&#10;DFe.Classes.dll&#13;&#10;MDFe.Utils.dll" ReportInfo.Created="01/12/2017 09:00:32" ReportInfo.Modified="06/21/2022 10:33:32" ReportInfo.CreatorVersion="2022.1.0.0">
   <ScriptText>using System;
 using System.IO;
 using System.Collections;
@@ -168,40 +168,7 @@ namespace FastReport
         }
       }
       
-      //Seguros
-      if (versao300)
-      {   
-        var seguros = Report.GetDataSource(&quot;MDFeProcMDFe.MDFe.InfMDFe.Seg&quot;);
-        seguros.Init();
-        while (seguros.HasMoreRows)
-        {
-          string seguradora = (String)Report.GetColumnValue(&quot;MDFeProcMDFe.MDFe.InfMDFe.Seg.InfSeg.XSeg&quot;);
-          if (seguradora.Length &gt; 30)
-            seguradora = seguradora.Substring(0,30);
-          
-          string apolice = (String)Report.GetColumnValue(&quot;MDFeProcMDFe.MDFe.InfMDFe.Seg.NApol&quot;);
-          if (apolice.Length &gt; 20)
-            apolice = apolice.Substring(0,20);
-
-          txtSeguroResponsavel.Text += ((MDFeRespSeg)Report.GetColumnValue(&quot;MDFeProcMDFe.MDFe.InfMDFe.Seg.InfResp.RespSeg&quot;) == MDFeRespSeg.EmitenteDoMDFe ? &quot;1 - EMITENTE&quot; :&quot;2 - CONTRATANTE&quot;)  + Environment.NewLine;            
-          txtSeguroSeguradora.Text += seguradora + Environment.NewLine;
-          txtSeguroApolice.Text += apolice + Environment.NewLine;
-          
-          seguros.Next();
-        }
-        
-        var contratantes = Report.GetDataSource(&quot;MDFeProcMDFe.MDFe.InfMDFe.InfModal.Modal.infANTT.infContratante&quot;);
-        contratantes.Init();
-        while (contratantes.HasMoreRows)
-        {
-          string cnpj = string.IsNullOrEmpty((String)Report.GetColumnValue(&quot;MDFeProcMDFe.MDFe.InfMDFe.InfModal.Modal.infANTT.infContratante.CNPJ&quot;)) ? 
-                        ((String)Report.GetColumnValue(&quot;MDFeProcMDFe.MDFe.InfMDFe.InfModal.Modal.infANTT.infContratante.CPF&quot;)) :
-                        ((String)Report.GetColumnValue(&quot;MDFeProcMDFe.MDFe.InfMDFe.InfModal.Modal.infANTT.infContratante.CNPJ&quot;));
-          
-          txtContratantes.Text = FormatarCampo(cnpj, 'd') + Environment.NewLine;         
-          contratantes.Next();
-        }        
-      }      
+      
       
       //Totais
       qtdeCTe = ((Nullable&lt;Int32&gt;)Report.GetColumnValue(&quot;MDFeProcMDFe.MDFe.InfMDFe.Tot.QCTe&quot;));
@@ -210,11 +177,7 @@ namespace FastReport
       
       qtdeNFe = ((Nullable&lt;Int32&gt;)Report.GetColumnValue(&quot;MDFeProcMDFe.MDFe.InfMDFe.Tot.QNFe&quot;));
       qtdeNFe = qtdeNFe ?? 0;
-      Text39.Text = qtdeNFe.ToString();
-      
-      qtdeMDFe = ((Nullable&lt;Int32&gt;)Report.GetColumnValue(&quot;MDFeProcMDFe.MDFe.InfMDFe.Tot.QMDFe&quot;));
-      qtdeMDFe = qtdeMDFe ?? 0;
-      Text40.Text = qtdeMDFe.ToString();
+      Text39.Text = qtdeNFe.ToString();     
       
       DataDocumentoCancelado.Visible = ((Boolean)Report.GetParameterValue(&quot;DoocumentoCancelado&quot;)) || ((Boolean)Report.GetParameterValue(&quot;DocumentoEncerrado&quot;)); 
       Text60.Text = ((Boolean)Report.GetParameterValue(&quot;DocumentoEncerrado&quot;)) ? &quot;DOCUMENTO ENCERRADO&quot; : &quot;DOCUMENTO CANCELADO&quot;;
@@ -644,7 +607,7 @@ namespace FastReport
       <TextObject Name="Text1" Left="387.68" Top="173.95" Width="108.4" Height="10.01" Text="CONTROLE DO FISCO" Font="Arial, 5.25pt, style=Bold"/>
       <TextObject Name="Text2" Left="388.01" Top="235.12" Width="137.75" Height="8.89" Text="Chave de Acesso" Font="Arial, 6pt, style=Bold"/>
       <TextObject Name="Text4" Left="0.88" Top="108.51" Width="63.37" Height="18.68" Text="DAMDFE -" VertAlign="Center" Font="Arial, 8.25pt, style=Bold"/>
-      <PictureObject Name="poEmitLogo" Left="2.45" Top="12.45" Width="116.73" Height="84.82"/>
+      <PictureObject Name="poEmitLogo" Left="2.45" Top="12.45" Width="116.73" Height="84.82" Image=""/>
       <TextObject Name="Text5" Left="116.4" Top="12.9" Width="455.6" Height="25.9" Text="[MDFeProcMDFe.MDFe.InfMDFe.Emit.XNome]" VertAlign="Center" Font="Arial, 8.25pt, style=Bold"/>
       <TextObject Name="Text6" Left="116.42" Top="49.25" Width="450.6" Height="51.03" Text="[MDFeProcMDFe.MDFe.InfMDFe.Emit.EnderEmit.XLgr], [MDFeProcMDFe.MDFe.InfMDFe.Emit.EnderEmit.Nro] [MDFeProcMDFe.MDFe.InfMDFe.Emit.EnderEmit.XCpl] [MDFeProcMDFe.MDFe.InfMDFe.Emit.EnderEmit.XBairro]&#13;&#10;[MDFeProcMDFe.MDFe.InfMDFe.Emit.EnderEmit.XMun] - [MDFeProcMDFe.MDFe.InfMDFe.Emit.EnderEmit.ProxyUF], CEP: [FormatarCampo([MDFeProcMDFe.MDFe.InfMDFe.Emit.EnderEmit.CEP], 'c')]&#13;&#10;CNPJ: [FormatarCampo([MDFeProcMDFe.MDFe.InfMDFe.Emit.CNPJ],'d')] IE: [MDFeProcMDFe.MDFe.InfMDFe.Emit.IE] RNTRC: [MDFeProcMDFe.MDFe.InfMDFe.InfModal.Modal.infANTT.RNTRC]" Font="Arial Narrow, 6.75pt"/>
       <TextObject Name="Text7" Left="3.58" Top="134.19" Width="34.8" Height="10.45" Text="Modelo" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 5.25pt"/>
