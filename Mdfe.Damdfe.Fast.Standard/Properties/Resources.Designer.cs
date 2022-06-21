@@ -63,12 +63,12 @@ namespace Mdfe.Damdfe.Fast.Standard.Properties {
         /// <summary>
         ///   Consulta um recurso localizado do tipo System.Byte[].
         /// </summary>
-        internal static byte[] MDFeRetratoStandard {
-            get {
-                object obj = ResourceManager.GetObject("MDFeRetratoStandard", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
+        // internal static byte[] MDFeRetratoStandard {
+        //     get {
+        //         object obj = ResourceManager.GetObject("MDFeRetratoStandard", resourceCulture);
+        //         return ((byte[])(obj));
+        //     }
+        // }
         internal static byte[] MDFeRetratoPadrao {
             get {
                 object obj = ResourceManager.GetObject("MDFeRetratoPadrao", resourceCulture);
